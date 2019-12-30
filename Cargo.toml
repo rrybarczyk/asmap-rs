@@ -1,0 +1,5 @@
+[package]
+name = "asmap-rs"
+version = "0.1.0"
+authors = ["Gleb Naumenko <naumenko.gs@gmail.com>", "RJ Rybarczyk <rj@rybar.tech>"]
+edition = "2018"

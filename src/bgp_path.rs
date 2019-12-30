@@ -1,0 +1,69 @@
+pub(crate) use crate::common::*;
+
+#[derive(Debug, PartialEq)]
+pub(crate) struct BGPPath {
+    addr: Address,
+    asn_path: Vec<u32>,
+}
+
+impl FromStr for BGPPath {
+    type Err = Error;
+
+    fn from_str(text: &str) -> Result<Self, Error> {
+        match text.find('|') {
+            Some(_) => (),
+            None => {
+                return Err(Error::NoPipe {
+                    bad_quagga: text.to_owned(),
+                })
+            }
+        };
+        // Get Address from IP and mask str
+        let record_vec: Vec<&str> = text.split('|').collect();
+        if record_vec.len() != 2 {
+            panic!("TODO: handle err for could not parse line correctly");
+        }
+
+        let addr = Address::from_str(record_vec[0])?;
+
+        // Get BGPPath from ASN array
+        let asn_vec_str: Vec<&str> = record_vec[1].split(' ').collect();
+        let mut asn_path: Vec<u32> = asn_vec_str
+            .into_iter()
+            .map(|s| s.parse().unwrap())
+            .collect();
+        asn_path.dedup();
+
+        Ok(BGPPath { addr, asn_path })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    // "223.255.245.0/24|31742 174 6453 4755 45820 45954 45954 45954 45954"
+    fn bgp_path_from_str() -> Result<(), Error> {
+        let ip = "223.255.245.0";
+        let mask = 24;
+        let asn_list = "31742 174 6453 4755 45820 45954 45954 45954 45954";
+        let text = format!("{}/{}|{}", ip, mask, asn_list);
+        let have = BGPPath::from_str(&text).unwrap();
+
+        let addr = Address {
+            ip: IpAddr::from_str(ip).unwrap(),
+            mask: mask,
+        };
+
+        let asn_list_dedup: Vec<u32> = vec![31742, 174, 6453, 4755, 45820, 45954];
+        let want = BGPPath {
+            addr: addr,
+            asn_path: asn_list_dedup,
+        };
+
+        assert_eq!(have, want);
+
+        Ok(())
+    }
+}
