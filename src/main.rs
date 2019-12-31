@@ -10,13 +10,13 @@ fn main() -> Result<(), Error> {
     let input = File::open(path).unwrap();
     let buffered = BufReader::new(input);
 
-    let mut bgp_input_data: Vec<BGPPath>;
+    let mut bgp_input_data: Vec<BGPPath> = Vec::new();
 
-    // for line in buffered.lines() {
-    //     let l = line.unwrap();
-    //     let bgp_line = BGPPath::from_str(&l)?;
-    //     bgp_input_data.push(bgp_line);
-    // }
+    for line in buffered.lines() {
+        let l = line.unwrap();
+        let bgp_line = BGPPath::from_str(&l)?;
+        bgp_input_data.push(bgp_line);
+    }
 
     Ok(())
 }
