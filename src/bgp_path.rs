@@ -18,6 +18,11 @@ impl FromStr for BGPPath {
                 })
             }
         };
+
+        //
+        // TODO: Count number of fields and if num fields is wrong throw error instead of splitting
+        // first and then counting vector length
+
         // Get Address from IP and mask str
         let record_vec: Vec<&str> = text.split('|').collect();
         if record_vec.len() != 2 {
@@ -30,8 +35,13 @@ impl FromStr for BGPPath {
         let asn_vec_str: Vec<&str> = record_vec[1].split(' ').collect();
         let mut asn_path: Vec<u32> = asn_vec_str
             .into_iter()
-            .map(|s| s.parse().unwrap())
-            .collect();
+            .map(|s| {
+                s.parse().map_err(|e| Error::ParseInt {
+                    bad_num: s.to_string(),
+                    error: e,
+                })
+            })
+            .collect::<Result<Vec<u32>, Error>>()?;
         asn_path.dedup();
 
         Ok(BGPPath { addr, asn_path })
@@ -65,5 +75,16 @@ mod tests {
         assert_eq!(have, want);
 
         Ok(())
+    }
+
+    #[test]
+    fn parse_int() {
+        let text = "223.255.245.0/24|31742 174 4294967296 4755 45820 45954 45954 45954 45954";
+        let have = BGPPath::from_str(&text).unwrap_err();
+
+        match have {
+            Error::ParseInt { .. } => {}
+            _ => panic!("Expected BGPPath ParseInt Error type"),
+        };
     }
 }

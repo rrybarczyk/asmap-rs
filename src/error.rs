@@ -5,6 +5,10 @@ pub(crate) enum Error {
     IoError {
         io_error: std::io::Error,
     },
+    ParseInt {
+        bad_num: String,
+        error: std::num::ParseIntError,
+    },
     AddrParse {
         addr_parse: std::net::AddrParseError,
         bad_addr: String,
@@ -20,6 +24,9 @@ pub(crate) enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::ParseInt { bad_num, error } => {
+                write!(f, "Failed to parse u32 `{}`: {}", bad_num, error)
+            }
             Self::AddrParse {
                 addr_parse,
                 bad_addr,
