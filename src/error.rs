@@ -1,7 +1,10 @@
 pub(crate) use crate::common::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum Error {
+    IoError {
+        io_error: std::io::Error,
+    },
     AddrParse {
         addr_parse: std::net::AddrParseError,
         bad_addr: String,
@@ -31,6 +34,7 @@ impl Display for Error {
                 "Invalid quagga data line: {}. Missing `|`, expected format `IP/mask|<asn list>`",
                 bad_quagga
             ),
+            Self::IoError { io_error } => write!(f, "I/O error: {}", io_error),
         }
     }
 }
