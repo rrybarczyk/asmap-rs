@@ -9,7 +9,7 @@ pub(crate) struct Address {
 impl FromStr for Address {
     type Err = Error;
 
-    fn from_str(text: &str) -> Result<Self, Error> {
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
         match text.find('/') {
             Some(_) => (),
             None => {
