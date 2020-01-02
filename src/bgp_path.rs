@@ -2,8 +2,8 @@ pub(crate) use crate::common::*;
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct BGPPath {
-    addr: Address,
-    as_path: Vec<u32>,
+    pub addr: Address,
+    pub as_path: Vec<u32>,
 }
 
 impl FromStr for BGPPath {
