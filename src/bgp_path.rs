@@ -3,13 +3,13 @@ pub(crate) use crate::common::*;
 #[derive(Debug, PartialEq)]
 pub(crate) struct BGPPath {
     addr: Address,
-    asn_path: Vec<u32>,
+    as_path: Vec<u32>,
 }
 
 impl FromStr for BGPPath {
     type Err = Error;
 
-    fn from_str(text: &str) -> Result<Self, Error> {
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
         match text.find('|') {
             Some(_) => (),
             None => {
@@ -32,8 +32,8 @@ impl FromStr for BGPPath {
         let addr = Address::from_str(record_vec[0])?;
 
         // Get BGPPath from ASN array
-        let asn_vec_str: Vec<&str> = record_vec[1].split(' ').collect();
-        let mut asn_path: Vec<u32> = asn_vec_str
+        let as_vec_str: Vec<&str> = record_vec[1].split(' ').collect();
+        let mut as_path: Vec<u32> = as_vec_str
             .into_iter()
             .map(|s| {
                 s.parse().map_err(|e| Error::ParseInt {
@@ -42,9 +42,9 @@ impl FromStr for BGPPath {
                 })
             })
             .collect::<Result<Vec<u32>, Error>>()?;
-        asn_path.dedup();
+        as_path.dedup();
 
-        Ok(BGPPath { addr, asn_path })
+        Ok(BGPPath { addr, as_path })
     }
 }
 
@@ -69,7 +69,7 @@ mod tests {
         let asn_list_dedup: Vec<u32> = vec![31742, 174, 6453, 4755, 45820, 45954];
         let want = BGPPath {
             addr: addr,
-            asn_path: asn_list_dedup,
+            as_path: asn_list_dedup,
         };
 
         assert_eq!(have, want);
