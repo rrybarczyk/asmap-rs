@@ -1,6 +1,6 @@
 pub(crate) use crate::common::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct Address {
     pub(crate) ip: IpAddr,
     pub(crate) mask: u8,
