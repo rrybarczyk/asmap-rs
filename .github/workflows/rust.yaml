@@ -1,0 +1,34 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os:
+        - macos-latest
+        - ubuntu-latest
+    runs-on: ${{matrix.os}}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: clippy, rustfmt
+        override: true
+    - name: Version
+      run: |
+        rustup --version
+        cargo --version
+        cargo clippy --version
+    - name: Build
+      run: cargo build --verbose
+    - name: Test
+      run: cargo test --verbose
+    - name: Lint
+      run: cargo clippy
+    - name: Format
+      run: cargo fmt -- --check

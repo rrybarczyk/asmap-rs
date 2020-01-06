@@ -20,7 +20,6 @@ impl FromStr for Address {
         };
 
         let ip_mask_vec: Vec<&str> = text.split('/').collect();
-        dbg!(&ip_mask_vec);
 
         let ip_str = ip_mask_vec[0];
         let ip = IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
@@ -43,7 +42,7 @@ mod tests {
         let ip_and_mask = format!("{}/{}", ip, mask);
         let want = Address {
             ip: IpAddr::from_str(ip).unwrap(),
-            mask: mask,
+            mask,
         };
 
         let have = Address::from_str(&ip_and_mask).unwrap();
