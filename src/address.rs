@@ -42,7 +42,7 @@ mod tests {
         let ip_and_mask = format!("{}/{}", ip, mask);
         let want = Address {
             ip: IpAddr::from_str(ip).unwrap(),
-            mask: mask,
+            mask,
         };
 
         let have = Address::from_str(&ip_and_mask).unwrap();

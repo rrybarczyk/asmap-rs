@@ -8,7 +8,7 @@ pub(crate) use crate::common::*;
 fn main() -> Result<(), Error> {
     // Import quagga file and store
     let path = "./data/dump_01_2019-12-28";
-    let input = File::open(path).unwrap();
+    let input = File::open(path).map_err(|error| Error::IoError { io_error: error })?;
     let mut buffered = BufReader::new(input);
     let bgp_path_vec = BGPPath::load(&mut buffered)?;
 
