@@ -43,6 +43,7 @@ impl FromStr for BGPPath {
             })
             .collect::<Result<Vec<u32>, Error>>()?;
         as_path.dedup();
+        as_path.sort();
 
         Ok(BGPPath { addr, as_path })
     }
@@ -66,7 +67,7 @@ mod tests {
             mask,
         };
 
-        let asn_list_dedup: Vec<u32> = vec![31742, 174, 6453, 4755, 45820, 45954];
+        let asn_list_dedup: Vec<u32> = vec![174, 4755, 6453, 31742, 45820, 45954];
         let want = BGPPath {
             addr,
             as_path: asn_list_dedup,
