@@ -1,6 +1,6 @@
 pub(crate) use crate::common::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash)]
 pub(crate) struct BGPPath {
     pub addr: Address,
     pub as_path: Vec<u32>,
