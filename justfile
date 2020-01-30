@@ -10,7 +10,7 @@ test-print:
 build: 
 	cargo build --release
 
-run:
+r:
     cargo watch --clear --exec run
 
 # clean up feature branch BRANCH

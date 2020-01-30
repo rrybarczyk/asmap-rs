@@ -1,7 +1,7 @@
 pub(crate) use crate::common::*;
 
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     IoError {
         io_error: std::io::Error,
     },
@@ -18,6 +18,10 @@ pub(crate) enum Error {
     },
     NoPipe {
         bad_quagga: String,
+    },
+    Reqwest {
+        url: String,
+        reqwest_error: reqwest::Error,
     },
 }
 
@@ -42,6 +46,9 @@ impl Display for Error {
                 bad_quagga
             ),
             Self::IoError { io_error } => write!(f, "I/O error: {}", io_error),
+            Self::Reqwest { url, reqwest_error } => {
+                write!(f, "Failed request for {}. {}", url, reqwest_error)
+            }
         }
     }
 }
