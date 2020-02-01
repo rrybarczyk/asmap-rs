@@ -1,17 +1,23 @@
-test: 
-    cargo watch --clear --exec test
+alias b := build
+alias br := build-release
+alias c := check
+alias t := test
+alias tp := test-print
+
+build:
+    cargo watch --clear --exec run
+
+build-release: 
+	cargo build --release
 
 check: 
     cargo watch --clear --exec check
 
+test: 
+    cargo watch --clear --exec test
+
 test-print:
     cargo test -- --nocapture
-
-build: 
-	cargo build --release
-
-r:
-    cargo watch --clear --exec run
 
 # clean up feature branch BRANCH
 done BRANCH:
@@ -25,3 +31,5 @@ done BRANCH:
 publish:
 	cargo build
 	cargo publish
+
+
