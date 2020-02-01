@@ -67,11 +67,17 @@ pub(crate) fn parse_mrt_from_file(
             Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                 TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
                     for peer_entry in entry.peer_entries {
-                        let addr = Address {
-                            ip: peer_entry.peer_ip_address,
-                            mask: None,
-                        };
-                        addresses.push(addr);
+                        // Only inlcude ipv4 addresses (type 2), do not include IPV6 addresses
+                        // (type3)
+                        if peer_entry.peer_type == 2 {
+                            let addr = Address {
+                                ip: peer_entry.peer_ip_address,
+                                mask: None,
+                            };
+                            addresses.push(addr);
+                        } else {
+                            continue;
+                        }
                     }
                 }
                 TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
@@ -98,9 +104,60 @@ pub(crate) fn parse_mrt_from_file(
     Ok(())
 }
 
+use std::convert::TryInto;
+
+fn read_be_u32(input: &mut &[u8]) -> u32 {
+    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
+    *input = rest;
+    u32::from_be_bytes(int_bytes.try_into().unwrap())
+}
+
+/// Extracts an as path given a vec of bgp attributes
 fn as_path_from_bgp_attributes(bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Error> {
-    // Ok(vec![1234, 5678])
-    todo!();
+    if bgp_attributes.is_empty() {
+        panic!("no bgp_attributes");
+    }
+
+    if bgp_attributes.len() < 8 {
+        panic!("insufficient number of bgp attribute bytes");
+    }
+
+    let mut asn_path: Vec<u32> = Vec::new();
+
+    let mut num_asn: usize = 0;
+    let mut start_idx: usize = 0;
+
+    if &bgp_attributes[0..5] == &[64, 1, 1, 0, 64] {
+        // 8th byte indicates the number of asn's included in the as path
+        num_asn = bgp_attributes[8] as usize;
+
+        // 9th byte is the start of the first asn in the as path
+        start_idx = 9;
+    } else if &bgp_attributes[0..5] == &[64, 1, 1, 0, 80] {
+        // 8th byte indicates the number of asn's included in the as path
+        num_asn = bgp_attributes[9] as usize;
+
+        // 9th byte is the start of the first asn in the as path
+        start_idx = 10;
+    }
+
+    // Each asn is a u32 (represented by 4 bytes)
+    let end_idx = num_asn * 4;
+
+    // Extract the as path from the bgp attributes
+    let (_, as_path_bytes_tmp) = &bgp_attributes.split_at(start_idx);
+    let (mut as_path_bytes, _) = as_path_bytes_tmp.split_at(num_asn * 4);
+
+    let mut start = 0;
+    let mut end = 4;
+    for i in 0..num_asn {
+        let start = i * end;
+        let end = start + 4;
+        let mut asn_slice = &as_path_bytes[start..end];
+        let mut asn = read_be_u32(&mut asn_slice);
+        asn_path.push(asn);
+    }
+    Ok(asn_path)
 }
 
 pub(crate) fn find_as_bottleneck(
@@ -190,6 +247,33 @@ mod tests {
             .insert(vec![6894, 13335, 4826, 174]);
 
         Ok(mrt_hm)
+    }
+
+    #[test]
+    fn finds_as_path_from_bgp_attributes_64() -> Result<(), Error> {
+        let bgp_attributes = vec![
+            64, 1, 1, 0, 64, 2, 14, 2, 3, 0, 0, 12, 231, 0, 0, 50, 74, 0, 3, 49, 30, 64, 3, 4, 195,
+            66, 224, 110, 192, 8, 28, 12, 231, 3, 232, 12, 231, 3, 238, 12, 231, 3, 252, 12, 231,
+            12, 21, 50, 74, 2, 188, 50, 74, 3, 243, 50, 74, 11, 210,
+        ];
+        let have = as_path_from_bgp_attributes(bgp_attributes)?;
+        let want = vec![3303, 12874, 209182];
+
+        assert_eq!(have, want);
+        Ok(())
+    }
+
+    #[test]
+    fn finds_as_path_from_bgp_attributes_80() -> Result<(), Error> {
+        let bgp_attributes = vec![
+            64, 1, 1, 0, 80, 2, 0, 10, 2, 2, 0, 0, 251, 15, 0, 0, 243, 32, 64, 3, 4, 195, 66, 225,
+            77,
+        ];
+        let have = as_path_from_bgp_attributes(bgp_attributes)?;
+        let want = vec![64271u32, 62240u32];
+
+        assert_eq!(want, have);
+        Ok(())
     }
 
     #[test]
