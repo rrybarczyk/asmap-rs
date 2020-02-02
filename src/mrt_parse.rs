@@ -215,8 +215,28 @@ fn find_common_suffix(
     Ok(())
 }
 
+use std::time::SystemTime;
+/// Extracts an as path given a vec of bgp attributes
 pub(crate) fn write_bottleneck(mrt_hm: HashMap<Address, u32>) -> Result<(), Error> {
-    todo!();
+    let epoch = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let now = epoch.as_secs();
+    let out_path = format!("data/2020-28-160000-data.{}.out", now);
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .append(true)
+        .open(&out_path)
+        .unwrap();
+
+    for (key, value) in mrt_hm {
+        let text = format!("{}/{}|{:?}", key.ip, key.mask.unwrap(), value);
+        writeln!(file, "{:?}", &text).unwrap();
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -322,6 +342,15 @@ mod tests {
         let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz";
         assert_eq!(parse_mrt_from_gz_url(url, &mut mrt_hm)?, ());
         assert_eq!(mrt_hm.is_empty(), false);
+        Ok(())
+    }
+
+    #[test]
+    fn writes_result_to_file() -> Result<(), Error> {
+        let mut mrt_hm: HashMap<Address, u32> = HashMap::new();
+        mrt_hm.insert(Address::from_str("195.66.225.77/0")?, 62240);
+        mrt_hm.insert(Address::from_str("5.57.81.186/24")?, 13335);
+        write_bottleneck(mrt_hm)?;
         Ok(())
     }
 }
