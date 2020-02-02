@@ -28,7 +28,6 @@ pub(crate) fn parse_mrt_from_gz_url(
                     }
                 }
                 TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                    let mask = entry.prefix_length;
                     for rib_entry in entry.entries {
                         let index = rib_entry.peer_index as usize;
                         addresses[index].mask = Some(entry.prefix_length);
@@ -57,7 +56,7 @@ pub(crate) fn parse_mrt_from_file(
 ) -> Result<(), Error> {
     let mut addresses: Vec<Address> = Vec::new();
 
-    let mut buffer =
+    let buffer =
         BufReader::new(File::open(path).map_err(|error| Error::IoError { io_error: error })?);
 
     let mut reader = Reader { stream: buffer };
@@ -81,7 +80,6 @@ pub(crate) fn parse_mrt_from_file(
                     }
                 }
                 TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                    let mask = entry.prefix_length;
                     for rib_entry in entry.entries {
                         let index = rib_entry.peer_index as usize;
                         addresses[index].mask = Some(entry.prefix_length);
@@ -141,20 +139,16 @@ fn as_path_from_bgp_attributes(bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Erro
         start_idx = 10;
     }
 
-    // Each asn is a u32 (represented by 4 bytes)
-    let end_idx = num_asn * 4;
-
     // Extract the as path from the bgp attributes
     let (_, as_path_bytes_tmp) = &bgp_attributes.split_at(start_idx);
-    let (mut as_path_bytes, _) = as_path_bytes_tmp.split_at(num_asn * 4);
+    let (as_path_bytes, _) = as_path_bytes_tmp.split_at(num_asn * 4);
 
-    let mut start = 0;
-    let mut end = 4;
+    let end = 4;
     for i in 0..num_asn {
         let start = i * end;
         let end = start + 4;
         let mut asn_slice = &as_path_bytes[start..end];
-        let mut asn = read_be_u32(&mut asn_slice);
+        let asn = read_be_u32(&mut asn_slice);
         asn_path.push(asn);
     }
     Ok(asn_path)
@@ -192,7 +186,7 @@ fn find_common_suffix(
         // rev_common_suffix.reverse();
         for as_path in as_paths_sorted.iter().skip(1) {
             // first one is already in rev_common_suffix
-            let mut rev_as_path: Vec<u32> = as_path.to_vec();
+            let rev_as_path: Vec<u32> = as_path.to_vec();
             // rev_as_path.reverse();
 
             // every IP should always belong to only one AS

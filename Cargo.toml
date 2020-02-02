@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Gleb Naumenko <naumenko.gs@gmail.com>", "RJ Rybarczyk <rj@rybar.tech>"]
 edition = "2018"
 
-[lib]
-path = "src/lib.rs"
-
 [dependencies]
 flate2 = { version = "1.0", features = ["zlib"], default-features = false }
 mrt-rs = "1.1.3"

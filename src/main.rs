@@ -4,6 +4,9 @@ pub mod error;
 mod mrt_parse;
 
 pub(crate) use crate::common::*;
+fn main() -> Result<(), Error> {
+    bottleneck_from_mrt_gz_url()
+}
 
 /// Reads mrt files defined by range, decompresses them, parses mrt output, finds bottleneck
 pub fn run_mrt_file() -> Result<(), Error> {
