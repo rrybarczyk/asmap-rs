@@ -23,6 +23,15 @@ pub enum Error {
         url: String,
         reqwest_error: reqwest::Error,
     },
+    UnknownTypeCode {
+        unknown_type_code: u8,
+    },
+    MissingPathAttribute {
+        missing_attribute: String,
+    },
+    UnknownASValue {
+        unknown_as_value: u8,
+    },
 }
 
 impl Display for Error {
@@ -49,6 +58,19 @@ impl Display for Error {
             Self::Reqwest { url, reqwest_error } => {
                 write!(f, "Failed request for {}. {}", url, reqwest_error)
             }
+            Self::UnknownTypeCode { unknown_type_code } => write!(
+                f,
+                "Did not recognize type code `{}`, expected type code between 1 and 16.",
+                unknown_type_code
+            ),
+            Self::MissingPathAttribute { missing_attribute } => {
+                write!(f, "Invalid mrt entry. Missing {}.", missing_attribute)
+            }
+            Self::UnknownASValue { unknown_as_value } => write!(
+                f,
+                "Did not recognize as path value `{}`, expected AS_SET (1) or AS_SEQUENCE (2).",
+                unknown_as_value
+            ),
         }
     }
 }

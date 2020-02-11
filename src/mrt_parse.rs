@@ -110,48 +110,77 @@ fn read_be_u32(input: &mut &[u8]) -> u32 {
     u32::from_be_bytes(int_bytes.try_into().unwrap())
 }
 
+fn read_be_u16(input: &mut &[u8]) -> u16 {
+    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u16>());
+    *input = rest;
+    u16::from_be_bytes(int_bytes.try_into().unwrap())
+}
+
 /// Extracts an as path given a vec of bgp attributes
-fn as_path_from_bgp_attributes(bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Error> {
+fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Error> {
+    let mut as_path: Vec<u32> = Vec::new();
+
+    // Return error is no BGP path attributes are found
     if bgp_attributes.is_empty() {
-        panic!("no bgp_attributes");
+        return Err(Error::MissingPathAttribute {
+            missing_attribute: String::from("all attributes. BGP path attributes vector is empty."),
+        });
     }
 
-    if bgp_attributes.len() < 8 {
-        panic!("insufficient number of bgp attribute bytes");
+    loop {
+        let flag = bgp_attributes.remove(0);
+        let type_code = bgp_attributes.remove(0);
+        let attribute_length = match flag & (1 << 4) {
+            0 => bgp_attributes.remove(0) as usize,
+            _ => {
+                let length_bytes = vec![bgp_attributes.remove(0), bgp_attributes.remove(0)];
+                read_be_u16(&mut length_bytes.as_slice()) as usize
+            }
+        };
+
+        // Match on type_code and consume bgp_attributes values until AS Path attribute is found or return error
+        match type_code {
+            1 | 3..=16 => bgp_attributes = bgp_attributes.split_off(attribute_length),
+            2 => {
+                let as_set_indicator = bgp_attributes.remove(0);
+
+                // Determine if asn's are listed as an unordered AS_SET (1) or an ordered AS_SEQUENCE (2)
+                // Only add asn's to as_path vector if they are listed in an ordered AS_SEQUENCE
+                match as_set_indicator {
+                    1 => continue,
+                    2 => {
+                        let num_asn = bgp_attributes.remove(0);
+
+                        for _ in 0..num_asn {
+                            let mut asn_bytes = bgp_attributes.clone();
+                            bgp_attributes = asn_bytes.split_off(4);
+                            as_path.push(read_be_u32(&mut asn_bytes.as_slice()));
+                        }
+
+                        return Ok(as_path);
+                    }
+                    _ => {
+                        return Err(Error::UnknownASValue {
+                            unknown_as_value: as_set_indicator,
+                        })
+                    }
+                }
+            }
+
+            _ => {
+                return Err(Error::UnknownTypeCode {
+                    unknown_type_code: type_code,
+                })
+            }
+        }
+
+        // Return an error if all bgp_attributes are exhausted and no AS Path type code
+        if bgp_attributes.is_empty() {
+            return Err(Error::MissingPathAttribute {
+                missing_attribute: String::from("AS Path"),
+            });
+        }
     }
-
-    let mut asn_path: Vec<u32> = Vec::new();
-
-    let mut num_asn: usize = 0;
-    let mut start_idx: usize = 0;
-
-    if &bgp_attributes[0..5] == &[64, 1, 1, 0, 64] {
-        // 8th byte indicates the number of asn's included in the as path
-        num_asn = bgp_attributes[8] as usize;
-
-        // 9th byte is the start of the first asn in the as path
-        start_idx = 9;
-    } else if &bgp_attributes[0..5] == &[64, 1, 1, 0, 80] {
-        // 8th byte indicates the number of asn's included in the as path
-        num_asn = bgp_attributes[9] as usize;
-
-        // 9th byte is the start of the first asn in the as path
-        start_idx = 10;
-    }
-
-    // Extract the as path from the bgp attributes
-    let (_, as_path_bytes_tmp) = &bgp_attributes.split_at(start_idx);
-    let (as_path_bytes, _) = as_path_bytes_tmp.split_at(num_asn * 4);
-
-    let end = 4;
-    for i in 0..num_asn {
-        let start = i * end;
-        let end = start + 4;
-        let mut asn_slice = &as_path_bytes[start..end];
-        let asn = read_be_u32(&mut asn_slice);
-        asn_path.push(asn);
-    }
-    Ok(asn_path)
 }
 
 pub(crate) fn find_as_bottleneck(
@@ -346,5 +375,36 @@ mod tests {
         mrt_hm.insert(Address::from_str("5.57.81.186/24")?, 13335);
         write_bottleneck(mrt_hm)?;
         Ok(())
+    }
+
+    #[test]
+    fn extracts_as_path_from_bgp_attributes_vector() -> Result<(), Error> {
+        let attributes = vec![
+            64, 1, 1, 0, 64, 2, 10, 2, 2, 0, 0, 165, 233, 0, 0, 5, 19, 64, 3, 4, 195, 66, 226, 113,
+            128, 4, 4, 0, 0, 0, 0, 192, 8, 24, 184, 43, 5, 222, 184, 43, 7, 208, 184, 43, 8, 64,
+            184, 43, 8, 252, 184, 43, 9, 112, 184, 43, 10, 40,
+        ];
+
+        let have = as_path_from_bgp_attributes(attributes)?;
+        let want = vec![42473u32, 1299u32];
+
+        assert_eq!(have, want);
+        Ok(())
+    }
+
+    #[test]
+    fn convert_bytes_to_u16() {
+        let length_bytes = vec![0, 10];
+        let have = read_be_u16(&mut length_bytes.as_slice());
+        let want = 10u16;
+        assert_eq!(have, want);
+    }
+
+    #[test]
+    fn convert_bytes_to_u32() {
+        let length_bytes = vec![0, 0, 0, 10];
+        let have = read_be_u32(&mut length_bytes.as_slice());
+        let want = 10u32;
+        assert_eq!(have, want);
     }
 }
