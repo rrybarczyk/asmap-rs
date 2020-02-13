@@ -5,10 +5,6 @@ pub enum Error {
     IoError {
         io_error: std::io::Error,
     },
-    ParseInt {
-        bad_num: String,
-        error: std::num::ParseIntError,
-    },
     TryFromSlice {
         bad_input: Vec<u8>,
         num_type: String,
@@ -20,9 +16,6 @@ pub enum Error {
     },
     NoSlash {
         bad_addr: String,
-    },
-    NoPipe {
-        bad_quagga: String,
     },
     Reqwest {
         url: String,
@@ -42,9 +35,6 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::ParseInt { bad_num, error } => {
-                write!(f, "Failed to parse u32 `{}`: {}", bad_num, error)
-            }
             Self::TryFromSlice {
                 bad_input,
                 num_type,
@@ -62,11 +52,6 @@ impl Display for Error {
                 f,
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
                 bad_addr
-            ),
-            Self::NoPipe { bad_quagga } => write!(
-                f,
-                "Invalid quagga data line: {}. Missing `|`, expected format `IP/mask|<asn list>`",
-                bad_quagga
             ),
             Self::IoError { io_error } => write!(f, "I/O error: {}", io_error),
             Self::Reqwest { url, reqwest_error } => {

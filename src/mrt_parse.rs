@@ -1,20 +1,12 @@
 pub(crate) use crate::common::*;
 
-pub(crate) fn parse_mrt_from_gz_url(
-    url: &Url,
+fn parse_mrt(
+    reader: &mut dyn Read,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
-) -> Result<(), Error> {
+) -> Result<()> {
+    let mut reader = Reader { stream: reader };
+
     let mut addresses: Vec<Address> = Vec::new();
-
-    let res = reqwest::blocking::get(&url.to_string()).map_err(|reqwest_error| Error::Reqwest {
-        url: url.to_string(),
-        reqwest_error,
-    })?;
-
-    let decoder = GzDecoder::new(res);
-
-    let mut reader = Reader { stream: decoder };
-
     while let Ok(Some((_, record))) = reader.read() {
         match record {
             Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
@@ -53,53 +45,31 @@ pub(crate) fn parse_mrt_from_gz_url(
             _ => continue,
         }
     }
-
     Ok(())
 }
 
+pub(crate) fn parse_mrt_from_gz_url(
+    url: &Url,
+    mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+) -> Result<()> {
+    let res = reqwest::blocking::get(&url.to_string()).map_err(|reqwest_error| Error::Reqwest {
+        url: url.to_string(),
+        reqwest_error,
+    })?;
+
+    let mut decoder = GzDecoder::new(res);
+    parse_mrt(&mut decoder, mrt_hm)
+}
+
+#[cfg(test)]
 pub(crate) fn parse_mrt_from_file(
     path: &str,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
-) -> Result<(), Error> {
-    let mut addresses: Vec<Address> = Vec::new();
-
-    let buffer =
+) -> Result<()> {
+    let mut buffer =
         BufReader::new(File::open(path).map_err(|error| Error::IoError { io_error: error })?);
 
-    let mut reader = Reader { stream: buffer };
-    while let Ok(Some((_, record))) = reader.read() {
-        match record {
-            Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
-                TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
-                    for peer_entry in entry.peer_entries {
-                        let addr = Address {
-                            ip: peer_entry.peer_ip_address,
-                            mask: None,
-                        };
-                        addresses.push(addr);
-                    }
-                }
-                TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                    for rib_entry in entry.entries {
-                        let index = rib_entry.peer_index as usize;
-                        addresses[index].mask = Some(entry.prefix_length);
-
-                        let mut as_path = as_path_from_bgp_attributes(rib_entry.attributes)?;
-                        as_path.dedup();
-
-                        mrt_hm
-                            .entry(addresses[index])
-                            .or_insert_with(HashSet::new)
-                            .insert(as_path);
-                    }
-                }
-                _ => break,
-            },
-            _ => continue,
-        }
-    }
-
-    Ok(())
+    parse_mrt(&mut buffer, mrt_hm)
 }
 
 /// Extracts an as path given a vec of bgp attributes
@@ -323,9 +293,11 @@ mod tests {
     #[ignore]
     #[test]
     fn can_parse_mrt_from_gz_url() -> Result<(), Error> {
-        let mut mrt_hm: HashMap<Address, HashSet<Vec<u32>>> = HashMap::new();
-        let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz";
-        assert_eq!(parse_mrt_from_gz_url(url, &mut mrt_hm)?, ());
+        let mut mrt_hm = HashMap::new();
+        let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz"
+            .parse()
+            .unwrap();
+        assert_eq!(parse_mrt_from_gz_url(&url, &mut mrt_hm)?, ());
         assert_eq!(mrt_hm.is_empty(), false);
         let epoch = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
