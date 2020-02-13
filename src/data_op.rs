@@ -1,6 +1,6 @@
 pub(crate) use crate::common::*;
 
-pub(crate) fn download_gz(urls: Vec<String>, out: String, _gunzip: bool) -> Result<(), Error> {
+pub(crate) fn download_gz(_urls: Vec<String>, _out: String, _gunzip: bool) -> Result<(), Error> {
     todo!()
 }
 
@@ -31,7 +31,7 @@ pub(crate) fn write_bottleneck(mrt_hm: HashMap<Address, u32>) -> Result<(), Erro
     Ok(())
 }
 
-pub(crate) fn write_mrt_data(mrt_hm: HashMap<Address, HashSet<Vec<u32>>>) -> Result<(), Error> {
+pub(crate) fn write_mrt_data(mrt_hm: &HashMap<Address, HashSet<Vec<u32>>>) -> Result<(), Error> {
     let file_name = format!("mrt-data.out");
     let mut file = create_new_file(&file_name).unwrap();
 

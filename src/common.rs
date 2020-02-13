@@ -1,4 +1,4 @@
-pub(crate) use crate::{address::Address, data_op, error::Error, helper, opt::Opt};
+pub(crate) use crate::{address::Address, error::Error, helper, opt::Opt};
 pub(crate) use std::collections::{HashMap, HashSet};
 pub(crate) use std::fs::{File, OpenOptions};
 pub(crate) use std::io::{prelude::*, BufReader};
