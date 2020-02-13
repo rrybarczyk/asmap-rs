@@ -9,6 +9,11 @@ pub enum Error {
         bad_num: String,
         error: std::num::ParseIntError,
     },
+    TryFromSlice {
+        bad_input: Vec<u8>,
+        num_type: String,
+        error: std::array::TryFromSliceError,
+    },
     AddrParse {
         addr_parse: std::net::AddrParseError,
         bad_addr: String,
@@ -40,6 +45,15 @@ impl Display for Error {
             Self::ParseInt { bad_num, error } => {
                 write!(f, "Failed to parse u32 `{}`: {}", bad_num, error)
             }
+            Self::TryFromSlice {
+                bad_input,
+                num_type,
+                error,
+            } => write!(
+                f,
+                "Failed to convert `{:?}` to a {} type: {}",
+                bad_input, num_type, error
+            ),
             Self::AddrParse {
                 addr_parse,
                 bad_addr,

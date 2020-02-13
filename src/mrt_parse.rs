@@ -120,7 +120,7 @@ fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, 
             0 => bgp_attributes.remove(0) as usize,
             _ => {
                 let length_bytes = vec![bgp_attributes.remove(0), bgp_attributes.remove(0)];
-                helper::read_be_u16(&mut length_bytes.as_slice()) as usize
+                helper::read_be_u16(&mut length_bytes.as_slice())? as usize
             }
         };
 
@@ -140,7 +140,7 @@ fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, 
                         for _ in 0..num_asn {
                             let mut asn_bytes = bgp_attributes.clone();
                             bgp_attributes = asn_bytes.split_off(4);
-                            as_path.push(helper::read_be_u32(&mut asn_bytes.as_slice()));
+                            as_path.push(helper::read_be_u32(&mut asn_bytes.as_slice())?);
                         }
 
                         return Ok(as_path);
