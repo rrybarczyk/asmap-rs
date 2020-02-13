@@ -32,16 +32,23 @@ pub(crate) fn parse_mrt_from_gz_url(
                         let index = rib_entry.peer_index as usize;
                         addresses[index].mask = Some(entry.prefix_length);
 
-                        let mut as_path = as_path_from_bgp_attributes(rib_entry.attributes)?;
-                        as_path.dedup();
+                        match as_path_from_bgp_attributes(rib_entry.attributes) {
+                            Ok(mut as_path) => {
+                                as_path.dedup();
 
-                        mrt_hm
-                            .entry(addresses[index])
-                            .or_insert_with(HashSet::new)
-                            .insert(as_path);
+                                mrt_hm
+                                    .entry(addresses[index])
+                                    .or_insert_with(HashSet::new)
+                                    .insert(as_path);
+                            }
+                            Err(e) => {
+                                println!("ERROR: {:?}", e);
+                                continue;
+                            }
+                        };
                     }
                 }
-                _ => continue,
+                _ => break,
             },
             _ => continue,
         }
@@ -60,23 +67,16 @@ pub(crate) fn parse_mrt_from_file(
         BufReader::new(File::open(path).map_err(|error| Error::IoError { io_error: error })?);
 
     let mut reader = Reader { stream: buffer };
-
     while let Ok(Some((_, record))) = reader.read() {
         match record {
             Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                 TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
                     for peer_entry in entry.peer_entries {
-                        // Only inlcude ipv4 addresses (type 2), do not include IPV6 addresses
-                        // (type3)
-                        if peer_entry.peer_type == 2 {
-                            let addr = Address {
-                                ip: peer_entry.peer_ip_address,
-                                mask: None,
-                            };
-                            addresses.push(addr);
-                        } else {
-                            continue;
-                        }
+                        let addr = Address {
+                            ip: peer_entry.peer_ip_address,
+                            mask: None,
+                        };
+                        addresses.push(addr);
                     }
                 }
                 TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
@@ -224,30 +224,6 @@ fn find_common_suffix(
     Ok(())
 }
 
-use std::time::SystemTime;
-/// Extracts an as path given a vec of bgp attributes
-pub(crate) fn write_bottleneck(mrt_hm: HashMap<Address, u32>) -> Result<(), Error> {
-    let epoch = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap();
-    let now = epoch.as_secs();
-    let out_path = format!("data/2020-28-160000-data.{}.out", now);
-
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .append(true)
-        .open(&out_path)
-        .unwrap();
-
-    for (key, value) in mrt_hm {
-        let text = format!("{}/{}|{:?}", key.ip, key.mask.unwrap(), value);
-        writeln!(file, "{:?}", &text).unwrap();
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -351,15 +327,23 @@ mod tests {
         let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz";
         assert_eq!(parse_mrt_from_gz_url(url, &mut mrt_hm)?, ());
         assert_eq!(mrt_hm.is_empty(), false);
-        Ok(())
-    }
+        let epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let now = epoch.as_secs();
+        let out_path = format!("data/rachel-2020-28-160000-data.{}.out", now);
 
-    #[test]
-    fn writes_result_to_file() -> Result<(), Error> {
-        let mut mrt_hm: HashMap<Address, u32> = HashMap::new();
-        mrt_hm.insert(Address::from_str("195.66.225.77/0")?, 62240);
-        mrt_hm.insert(Address::from_str("5.57.81.186/24")?, 13335);
-        write_bottleneck(mrt_hm)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .append(true)
+            .open(&out_path)
+            .unwrap();
+
+        for (key, value) in mrt_hm {
+            let text = format!("{:?} {:?}", key, value);
+            writeln!(file, "{:?}", &text).unwrap();
+        }
         Ok(())
     }
 
