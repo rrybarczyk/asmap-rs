@@ -1,9 +1,8 @@
 use crate::common::*;
 
 /// Convert two u8's into one u16
-pub(crate) fn read_be_u16(input: &mut &[u8]) -> Result<u16, Error> {
-    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u16>());
-    *input = rest;
+pub(crate) fn read_be_u16(input: &[u8]) -> Result<u16, Error> {
+    let (int_bytes, _) = input.split_at(std::mem::size_of::<u16>());
 
     let result = u16::from_be_bytes(int_bytes.try_into().map_err(|error| Error::TryFromSlice {
         bad_input: input.to_vec(),
@@ -15,9 +14,8 @@ pub(crate) fn read_be_u16(input: &mut &[u8]) -> Result<u16, Error> {
 }
 
 /// Convert four u8's into one u32
-pub(crate) fn read_be_u32(input: &mut &[u8]) -> Result<u32, Error> {
-    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
-    *input = rest;
+pub(crate) fn read_be_u32(input: &[u8]) -> Result<u32, Error> {
+    let (int_bytes, _) = input.split_at(std::mem::size_of::<u32>());
 
     let result = u32::from_be_bytes(int_bytes.try_into().map_err(|error| Error::TryFromSlice {
         bad_input: input.to_vec(),
