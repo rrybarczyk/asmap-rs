@@ -1,8 +1,9 @@
-pub(crate) use crate::{address::Address, error::Error};
+pub(crate) use crate::{address::Address, error::Error, helper};
 pub(crate) use std::collections::{HashMap, HashSet};
 pub(crate) use std::fs::{File, OpenOptions};
 pub(crate) use std::io::{prelude::*, BufReader};
 pub(crate) use std::{
+    convert::TryInto,
     fmt::{self, Display, Formatter},
     net::IpAddr,
     str::FromStr,

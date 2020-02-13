@@ -102,20 +102,6 @@ pub(crate) fn parse_mrt_from_file(
     Ok(())
 }
 
-use std::convert::TryInto;
-
-fn read_be_u32(input: &mut &[u8]) -> u32 {
-    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u32>());
-    *input = rest;
-    u32::from_be_bytes(int_bytes.try_into().unwrap())
-}
-
-fn read_be_u16(input: &mut &[u8]) -> u16 {
-    let (int_bytes, rest) = input.split_at(std::mem::size_of::<u16>());
-    *input = rest;
-    u16::from_be_bytes(int_bytes.try_into().unwrap())
-}
-
 /// Extracts an as path given a vec of bgp attributes
 fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Error> {
     let mut as_path: Vec<u32> = Vec::new();
@@ -134,7 +120,7 @@ fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, 
             0 => bgp_attributes.remove(0) as usize,
             _ => {
                 let length_bytes = vec![bgp_attributes.remove(0), bgp_attributes.remove(0)];
-                read_be_u16(&mut length_bytes.as_slice()) as usize
+                helper::read_be_u16(&mut length_bytes.as_slice()) as usize
             }
         };
 
@@ -154,7 +140,7 @@ fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, 
                         for _ in 0..num_asn {
                             let mut asn_bytes = bgp_attributes.clone();
                             bgp_attributes = asn_bytes.split_off(4);
-                            as_path.push(read_be_u32(&mut asn_bytes.as_slice()));
+                            as_path.push(helper::read_be_u32(&mut asn_bytes.as_slice()));
                         }
 
                         return Ok(as_path);
@@ -390,21 +376,5 @@ mod tests {
 
         assert_eq!(have, want);
         Ok(())
-    }
-
-    #[test]
-    fn convert_bytes_to_u16() {
-        let length_bytes = vec![0, 10];
-        let have = read_be_u16(&mut length_bytes.as_slice());
-        let want = 10u16;
-        assert_eq!(have, want);
-    }
-
-    #[test]
-    fn convert_bytes_to_u32() {
-        let length_bytes = vec![0, 0, 0, 10];
-        let have = read_be_u32(&mut length_bytes.as_slice());
-        let want = 10u32;
-        assert_eq!(have, want);
     }
 }
