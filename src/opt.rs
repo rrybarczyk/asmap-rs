@@ -7,31 +7,13 @@ use crate::common::*;
 )]
 pub(crate) struct Opt {
     #[structopt(subcommand)]
-    pub(crate) cmd: Command,
+    pub(crate) cmd: Subcommand,
 }
 
-#[derive(Debug, PartialEq, StructOpt)]
-pub(crate) enum Command {
-    Download {
-        #[structopt(name = "URL", long = "url", short = "u")]
-        url: Vec<String>,
-
-        #[structopt(name = "OUT", long = "out", short = "o", default_value = "gz-dumps")]
-        out: String,
-
-        #[structopt(name = "GUNZIP", long = "gunzip")]
-        gunzip: bool,
-    },
-    Bottleneck {
-        #[structopt(name = "URL", long = "url", short = "u")]
-        url: Vec<String>,
-
-        #[structopt(name = "OUT", long = "out", short = "o", default_value = "gz-dumps")]
-        out: String,
-
-        #[structopt(name = "GUNZIP", long = "gunzip")]
-        gunzip: bool,
-    },
+impl Opt {
+    pub(crate) fn run(self) -> Result<(), Error> {
+        self.cmd.run()
+    }
 }
 
 #[cfg(test)]
@@ -44,7 +26,7 @@ mod tests {
         let have = Opt::from_iter_safe(vec!["asmap", "download", "--url", url])?;
 
         let want = Opt {
-            cmd: Command::Download {
+            cmd: Subcommand::Download {
                 url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz".to_string()],
                 out: "gz-dumps".to_string(),
                 gunzip: false,
@@ -64,7 +46,7 @@ mod tests {
         ])?;
 
         let want = Opt {
-            cmd: Command::Download {
+            cmd: Subcommand::Download {
                 url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz".to_string()],
                 out: "out-dir".to_string(),
                 gunzip: true,

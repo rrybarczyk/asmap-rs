@@ -1,12 +1,12 @@
 pub(crate) use crate::common::*;
 
 pub(crate) fn parse_mrt_from_gz_url(
-    url: &str,
+    url: &Url,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
 ) -> Result<(), Error> {
     let mut addresses: Vec<Address> = Vec::new();
 
-    let res = reqwest::blocking::get(url).map_err(|reqwest_error| Error::Reqwest {
+    let res = reqwest::blocking::get(&url.to_string()).map_err(|reqwest_error| Error::Reqwest {
         url: url.to_string(),
         reqwest_error,
     })?;
@@ -48,7 +48,7 @@ pub(crate) fn parse_mrt_from_gz_url(
                         };
                     }
                 }
-                _ => break,
+                _ => continue,
             },
             _ => continue,
         }
@@ -93,7 +93,7 @@ pub(crate) fn parse_mrt_from_file(
                             .insert(as_path);
                     }
                 }
-                _ => continue,
+                _ => break,
             },
             _ => continue,
         }
