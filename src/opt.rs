@@ -27,8 +27,10 @@ mod tests {
 
         let want = Opt {
             cmd: Subcommand::Download {
-                url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz".to_string()],
-                out: "gz-dumps".to_string(),
+                url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz"
+                    .parse()
+                    .unwrap()],
+                out: "gz-dumps".into(),
                 gunzip: false,
             },
         };
@@ -47,8 +49,10 @@ mod tests {
 
         let want = Opt {
             cmd: Subcommand::Download {
-                url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz".to_string()],
-                out: "out-dir".to_string(),
+                url: vec!["http://data.ris.ripe.net/rrc02/latest-bview.gz"
+                    .parse()
+                    .unwrap()],
+                out: "out-dir".into(),
                 gunzip: true,
             },
         };
