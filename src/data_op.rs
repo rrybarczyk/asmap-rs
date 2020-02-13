@@ -1,8 +1,4 @@
-pub(crate) use crate::common::*;
-
-pub(crate) fn download_gz(_urls: Vec<String>, _out: String, _gunzip: bool) -> Result<(), Error> {
-    todo!()
-}
+use crate::common::*;
 
 /// Create a new file
 fn create_new_file(path: &str) -> Result<std::fs::File, Error> {
