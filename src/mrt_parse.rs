@@ -66,8 +66,10 @@ pub(crate) fn parse_mrt_from_file(
     path: &str,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
 ) -> Result<()> {
-    let mut buffer =
-        BufReader::new(File::open(path).map_err(|error| Error::IoError { io_error: error })?);
+    let mut buffer = BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
+        io_error,
+        path: path.into(),
+    })?);
 
     parse_mrt(&mut buffer, mrt_hm)
 }

@@ -2,4 +2,4 @@
 **/*.rs.bk
 data/
 notes
-gz-dumps/
+dump/

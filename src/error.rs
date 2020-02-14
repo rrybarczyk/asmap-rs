@@ -4,6 +4,7 @@ use crate::common::*;
 pub enum Error {
     IoError {
         io_error: std::io::Error,
+        path: PathBuf,
     },
     TryFromSlice {
         bad_input: Vec<u8>,
@@ -57,7 +58,9 @@ impl Display for Error {
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
                 bad_addr
             ),
-            IoError { io_error } => write!(f, "I/O error: {}", io_error),
+            IoError { io_error, path } => {
+                write!(f, "I/O error at `{}`: {}", path.display(), io_error)
+            }
             Reqwest { url, reqwest_error } => {
                 write!(f, "Failed request for {}. {}", url, reqwest_error)
             }

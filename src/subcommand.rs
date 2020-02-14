@@ -3,14 +3,8 @@ use crate::common::*;
 #[derive(Debug, PartialEq, StructOpt)]
 pub(crate) enum Subcommand {
     Download {
-        #[structopt(name = "URL", long = "url", short = "u")]
-        url: Vec<Url>,
-
-        #[structopt(name = "OUT", long = "out", short = "o", default_value = "gz-dumps")]
+        #[structopt(name = "OUT", long = "out", short = "o", default_value = "dump")]
         out: PathBuf,
-
-        #[structopt(name = "GUNZIP", long = "gunzip")]
-        gunzip: bool,
     },
     Bottleneck {
         #[structopt(name = "URL", long = "url", short = "u")]
@@ -27,13 +21,37 @@ pub(crate) enum Subcommand {
 impl Subcommand {
     pub(crate) fn run(self) -> Result<(), Error> {
         match self {
-            Self::Download { url, out, gunzip } => Self::download(&url, &out, gunzip),
+            Self::Download { out } => Self::download(&out),
             Self::Bottleneck { url, out, gunzip } => Self::bottleneck(&url, &out, gunzip),
         }
     }
 
-    fn download(_urls: &[Url], _out: &Path, _guzip: bool) -> Result<()> {
-        todo!()
+    /// Downloads the gz file from data.ris.ripe.net and save to `dump` directory.
+    fn download(out: &Path) -> Result<()> {
+        // Create target directory
+        fs::create_dir_all(out).map_err(|io_error| Error::IoError {
+            io_error,
+            path: out.into(),
+        })?;
+        let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz";
+        let mut res = reqwest::blocking::get(url).map_err(|reqwest_error| Error::Reqwest {
+            url: url.to_string(),
+            reqwest_error,
+        })?;
+
+        let dst = out.join("rrc01-latest-bview.gz");
+        let file = File::create(&dst).map_err(|io_error| Error::IoError {
+            io_error,
+            path: dst.to_path_buf(),
+        })?;
+
+        let mut buf_write = BufWriter::new(file);
+        io::copy(&mut res, &mut buf_write).map_err(|io_error| Error::IoError {
+            io_error,
+            path: out.to_path_buf(),
+        })?;
+
+        Ok(())
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck

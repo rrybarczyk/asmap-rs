@@ -1,12 +1,16 @@
 use crate::common::*;
 
 /// Create a new file
-fn create_new_file(path: &str) -> Result<std::fs::File, Error> {
+fn create_new_file(path: impl AsRef<Path>) -> Result<std::fs::File, Error> {
+    let path = path.as_ref();
     OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|error| Error::IoError { io_error: error })
+        .map_err(|io_error| Error::IoError {
+            io_error,
+            path: path.to_path_buf(),
+        })
 }
 
 /// Writes the asn bottleneck result to a file

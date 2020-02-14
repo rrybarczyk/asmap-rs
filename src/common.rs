@@ -2,8 +2,8 @@ pub(crate) use std::{
     collections::{HashMap, HashSet},
     convert::TryInto,
     fmt::{self, Display, Formatter},
-    fs::OpenOptions,
-    io::prelude::*,
+    fs::{self, File, OpenOptions},
+    io::{self, prelude::*, BufWriter},
     net::IpAddr,
     path::{Path, PathBuf},
     str::FromStr,
@@ -23,4 +23,4 @@ pub(crate) use crate::{
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[cfg(test)]
-pub(crate) use std::{fs::File, io::BufReader};
+pub(crate) use std::io::BufReader;
