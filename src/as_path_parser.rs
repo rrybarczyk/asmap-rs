@@ -45,6 +45,7 @@ impl<'buffer> AsPathParser<'buffer> {
 
     fn parse_attributes(mut self) -> Result<Vec<u32>> {
         let mut paths = Vec::new();
+
         while !self.done() {
             if let Some(path) = self.parse_attribute()? {
                 // if there are no asn's in the as path
@@ -76,17 +77,13 @@ impl<'buffer> AsPathParser<'buffer> {
             attribute_length |= self.advance()? as u16;
         }
 
-        match type_code {
-            1 | 3..=16 => {
-                for _ in 0..attribute_length {
-                    self.advance()?;
-                }
-                Ok(None)
+        if type_code == 2 {
+            self.parse_as_path()
+        } else {
+            for _ in 0..attribute_length {
+                self.advance()?;
             }
-
-            2 => self.parse_as_path(),
-
-            _ => todo!(),
+            Ok(None)
         }
     }
 
@@ -103,10 +100,12 @@ impl<'buffer> AsPathParser<'buffer> {
                 for _ in 0..num_asn {
                     self.parse_u32()?;
                 }
+
                 Ok(None)
             }
             2 => {
                 let mut as_path = Vec::new();
+
                 let num_asn = self.advance()?;
 
                 for _ in 0..num_asn {

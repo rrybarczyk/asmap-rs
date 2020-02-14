@@ -3,7 +3,7 @@ pub(crate) use std::{
     convert::TryInto,
     fmt::{self, Display, Formatter},
     fs::{self, File, OpenOptions},
-    io::{self, prelude::*, BufWriter},
+    io::{self, prelude::*, BufReader, BufWriter},
     net::IpAddr,
     path::{Path, PathBuf},
     str::FromStr,
@@ -16,11 +16,8 @@ pub(crate) use structopt::StructOpt;
 pub(crate) use url::Url;
 
 pub(crate) use crate::{
-    address::Address, as_path_parser::AsPathParser, data_op, error::Error, helper, mrt_parse,
-    opt::Opt, subcommand::Subcommand,
+    address::Address, as_path_parser::AsPathParser, error::Error, helper, mrt_parse, opt::Opt,
+    subcommand::Subcommand,
 };
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[cfg(test)]
-pub(crate) use std::io::BufReader;

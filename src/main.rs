@@ -1,7 +1,6 @@
 mod address;
 mod as_path_parser;
 mod common;
-mod data_op;
 mod error;
 mod helper;
 mod mrt_parse;

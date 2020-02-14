@@ -1,13 +1,16 @@
 use crate::common::*;
 
-fn parse_mrt(
+pub(crate) fn parse_mrt(
     reader: &mut dyn Read,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
 ) -> Result<()> {
     let mut reader = Reader { stream: reader };
 
     let mut addresses: Vec<Address> = Vec::new();
-    while let Ok(Some((_, record))) = reader.read() {
+    while let Some((_, record)) = reader.read().map_err(|io_error| Error::IoError {
+        io_error,
+        path: PathBuf::from("fake"),
+    })? {
         match record {
             Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                 TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
@@ -24,7 +27,7 @@ fn parse_mrt(
                         let index = rib_entry.peer_index as usize;
                         addresses[index].mask = Some(entry.prefix_length);
 
-                        match as_path_from_bgp_attributes(rib_entry.attributes) {
+                        match AsPathParser::parse(&rib_entry.attributes) {
                             Ok(mut as_path) => {
                                 as_path.dedup();
 
@@ -48,6 +51,7 @@ fn parse_mrt(
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn parse_mrt_from_gz_url(
     url: &Url,
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
@@ -72,73 +76,6 @@ pub(crate) fn parse_mrt_from_file(
     })?);
 
     parse_mrt(&mut buffer, mrt_hm)
-}
-
-/// Extracts an as path given a vec of bgp attributes
-fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, Error> {
-    let mut as_path: Vec<u32> = Vec::new();
-
-    // Return error is no BGP path attributes are found
-    if bgp_attributes.is_empty() {
-        return Err(Error::MissingPathAttribute {
-            missing_attribute: String::from("all attributes. BGP path attributes vector is empty."),
-        });
-    }
-
-    loop {
-        let flag = bgp_attributes.remove(0);
-        let type_code = bgp_attributes.remove(0);
-        let attribute_length = match flag & (1 << 4) {
-            0 => bgp_attributes.remove(0) as usize,
-            _ => {
-                let length_bytes = vec![bgp_attributes.remove(0), bgp_attributes.remove(0)];
-                helper::read_be_u16(&mut length_bytes.as_slice())? as usize
-            }
-        };
-
-        // Match on type_code and consume bgp_attributes values until AS Path attribute is found or return error
-        match type_code {
-            1 | 3..=16 => bgp_attributes = bgp_attributes.split_off(attribute_length),
-            2 => {
-                let as_set_indicator = bgp_attributes.remove(0);
-
-                // Determine if asn's are listed as an unordered AS_SET (1) or an ordered AS_SEQUENCE (2)
-                // Only add asn's to as_path vector if they are listed in an ordered AS_SEQUENCE
-                match as_set_indicator {
-                    1 => continue,
-                    2 => {
-                        let num_asn = bgp_attributes.remove(0);
-
-                        for _ in 0..num_asn {
-                            let mut asn_bytes = bgp_attributes.clone();
-                            bgp_attributes = asn_bytes.split_off(4);
-                            as_path.push(helper::read_be_u32(&mut asn_bytes.as_slice())?);
-                        }
-
-                        return Ok(as_path);
-                    }
-                    _ => {
-                        return Err(Error::UnknownAsValue {
-                            unknown_as_value: as_set_indicator,
-                        })
-                    }
-                }
-            }
-
-            _ => {
-                return Err(Error::UnknownTypeCode {
-                    unknown_type_code: type_code,
-                })
-            }
-        }
-
-        // Return an error if all bgp_attributes are exhausted and no AS Path type code
-        if bgp_attributes.is_empty() {
-            return Err(Error::MissingPathAttribute {
-                missing_attribute: String::from("AS Path"),
-            });
-        }
-    }
 }
 
 pub(crate) fn find_as_bottleneck(

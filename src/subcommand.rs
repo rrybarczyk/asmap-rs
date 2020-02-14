@@ -10,14 +10,12 @@ pub(crate) enum Subcommand {
         number: Vec<u32>,
     },
     Bottleneck {
-        #[structopt(name = "URL", long = "url", short = "u")]
-        url: Vec<Url>,
+        #[structopt(name = "DUMP", long = "dump", short = "d")]
+        dump: Vec<PathBuf>,
 
-        #[structopt(name = "OUT", long = "out", short = "o", default_value = "gz-dumps")]
-        out: PathBuf,
-
-        #[structopt(name = "GUNZIP", long = "gunzip")]
-        gunzip: bool,
+        /// Save to file if directory path is provided, otherwise print to stdout.
+        #[structopt(name = "OUT", long = "out", short = "o")]
+        out: Option<PathBuf>,
     },
 }
 
@@ -25,7 +23,7 @@ impl Subcommand {
     pub(crate) fn run(self) -> Result<(), Error> {
         match self {
             Self::Download { out, number } => Self::download(&out, &number),
-            Self::Bottleneck { url, out, gunzip } => Self::bottleneck(&url, &out, gunzip),
+            Self::Bottleneck { dump, out } => Self::bottleneck(&dump, out.as_deref()),
         }
     }
 
@@ -73,35 +71,48 @@ impl Subcommand {
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck
-    fn bottleneck(url: &[Url], out: &Path, gunzip: bool) -> Result<()> {
-        let mut mrt_hm = mrt_data_from_gz_url(&url, out, gunzip, false)?;
+    fn bottleneck(dump: &[PathBuf], out: Option<&Path>) -> Result<()> {
+        let mut mrt_hm = HashMap::new();
 
-        let as_bottleneck: HashMap<Address, u32> = mrt_parse::find_as_bottleneck(&mut mrt_hm)?;
-        data_op::write_bottleneck(as_bottleneck)?;
+        for path in dump {
+            let mut buffer =
+                BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
+                    io_error,
+                    path: path.into(),
+                })?);
+
+            let mut decoder = GzDecoder::new(buffer);
+            mrt_parse::parse_mrt(&mut decoder, &mut mrt_hm)?;
+        }
+
+        let as_bottleneck = mrt_parse::find_as_bottleneck(&mut mrt_hm)?;
+
+        if let Some(path) = out {
+            let epoch = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap();
+            let now = epoch.as_secs();
+            let dst = path.join(format!("bottleneck.{}.txt", now));
+            let mut file = File::create(&dst).map_err(|io_error| Error::IoError {
+                io_error,
+                path: dst.to_path_buf(),
+            })?;
+
+            Self::write_bottleneck(as_bottleneck, &mut file)?;
+        } else {
+            Self::write_bottleneck(as_bottleneck, &mut io::stdout())?;
+        };
+
+        Ok(())
+    }
+
+    /// Writes the asn bottleneck result to a file
+    fn write_bottleneck(mrt_hm: HashMap<Address, u32>, out: &mut dyn Write) -> Result<(), Error> {
+        for (key, value) in mrt_hm {
+            let text = format!("{}/{}|{:?}", key.ip, key.mask.unwrap(), value);
+            writeln!(out, "{:?}", &text).unwrap();
+        }
+
         Ok(())
     }
 }
-
-/// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, and writes
-/// to file
-fn mrt_data_from_gz_url(
-    url: &[Url],
-    _out: &Path,
-    _gunzip: bool,
-    save_raw_data: bool,
-) -> Result<HashMap<Address, HashSet<Vec<u32>>>, Error> {
-    let mut mrt_hm: HashMap<Address, HashSet<Vec<u32>>> = HashMap::new();
-
-    for u in url {
-        mrt_parse::parse_mrt_from_gz_url(&u, &mut mrt_hm)?;
-    }
-
-    if save_raw_data {
-        data_op::write_mrt_data(&mrt_hm)?;
-    }
-
-    Ok(mrt_hm)
-}
-
-// $ asmap download // all
-// $ asmap download --number 1,2,3,4
