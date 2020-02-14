@@ -16,7 +16,7 @@ pub(crate) use structopt::StructOpt;
 pub(crate) use url::Url;
 
 pub(crate) use crate::{
-    address::Address, as_path_parser::AsPathParser, error::Error, helper, mrt_parse, opt::Opt,
+    address::Address, as_path_parser::AsPathParser, error::Error, mrt_parse, opt::Opt,
     subcommand::Subcommand,
 };
 

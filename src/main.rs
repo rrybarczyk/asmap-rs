@@ -2,7 +2,6 @@ mod address;
 mod as_path_parser;
 mod common;
 mod error;
-mod helper;
 mod mrt_parse;
 mod opt;
 mod subcommand;
