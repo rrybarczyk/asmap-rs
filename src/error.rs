@@ -6,11 +6,6 @@ pub enum Error {
         io_error: std::io::Error,
         path: PathBuf,
     },
-    TryFromSlice {
-        bad_input: Vec<u8>,
-        num_type: String,
-        error: std::array::TryFromSliceError,
-    },
     AddrParse {
         addr_parse: std::net::AddrParseError,
         bad_addr: String,
@@ -21,9 +16,6 @@ pub enum Error {
     Reqwest {
         url: String,
         reqwest_error: reqwest::Error,
-    },
-    UnknownTypeCode {
-        unknown_type_code: u8,
     },
     MissingPathAttribute {
         missing_attribute: String,
@@ -40,15 +32,6 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
         match self {
-            TryFromSlice {
-                bad_input,
-                num_type,
-                error,
-            } => write!(
-                f,
-                "Failed to convert `{:?}` to a {} type: {}",
-                bad_input, num_type, error
-            ),
             AddrParse {
                 addr_parse,
                 bad_addr,
@@ -64,11 +47,6 @@ impl Display for Error {
             Reqwest { url, reqwest_error } => {
                 write!(f, "Failed request for {}. {}", url, reqwest_error)
             }
-            UnknownTypeCode { unknown_type_code } => write!(
-                f,
-                "Did not recognize type code `{}`, expected type code between 1 and 16.",
-                unknown_type_code
-            ),
             MissingPathAttribute { missing_attribute } => {
                 write!(f, "Invalid mrt entry. Missing {}.", missing_attribute)
             }

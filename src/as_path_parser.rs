@@ -10,6 +10,12 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Given a `buffer` with lifetime `'buffer`, constructs a new `AsPathParser` and parses the
     /// attributes.
     pub(crate) fn parse(buffer: &'buffer [u8]) -> Result<Vec<u32>> {
+        if buffer.is_empty() {
+            println!("empty buffer!!!!");
+            return Err(Error::MissingPathAttribute {
+                missing_attribute: "all attributes".to_string(),
+            });
+        }
         Self::new(buffer).parse_attributes()
     }
 
@@ -241,6 +247,20 @@ mod tests {
         let want = &[42473u32, 1299u32];
 
         assert_eq!(have, want);
+        Ok(())
+    }
+
+    #[ignore]
+    #[test]
+    fn returns_err_if_buffer_empty() -> Result<()> {
+        let _have = match AsPathParser::parse(&[]) {
+            Ok(_) => panic!("exepceted errr"),
+            Err(e) => e,
+        };
+        let _want = Error::MissingPathAttribute {
+            missing_attribute: "all attributes".to_string(),
+        };
+        // assert_eq!(want, have);
         Ok(())
     }
 }

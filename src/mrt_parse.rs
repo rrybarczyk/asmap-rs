@@ -51,33 +51,6 @@ pub(crate) fn parse_mrt(
     Ok(())
 }
 
-#[cfg(test)]
-pub(crate) fn parse_mrt_from_gz_url(
-    url: &Url,
-    mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
-) -> Result<()> {
-    let res = reqwest::blocking::get(&url.to_string()).map_err(|reqwest_error| Error::Reqwest {
-        url: url.to_string(),
-        reqwest_error,
-    })?;
-
-    let mut decoder = GzDecoder::new(res);
-    parse_mrt(&mut decoder, mrt_hm)
-}
-
-#[cfg(test)]
-pub(crate) fn parse_mrt_from_file(
-    path: &str,
-    mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
-) -> Result<()> {
-    let mut buffer = BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
-        io_error,
-        path: path.into(),
-    })?);
-
-    parse_mrt(&mut buffer, mrt_hm)
-}
-
 pub(crate) fn find_as_bottleneck(
     mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
 ) -> Result<HashMap<Address, u32>, Error> {
@@ -189,45 +162,6 @@ mod tests {
 
         assert_eq!(have, want);
 
-        Ok(())
-    }
-
-    #[ignore]
-    #[test]
-    fn can_parse_mrt_from_file() -> Result<(), Error> {
-        let mut mrt_hm: HashMap<Address, HashSet<Vec<u32>>> = HashMap::new();
-        let path = "data/latest-bview-2020-01-28-160000";
-        assert_eq!(parse_mrt_from_file(path, &mut mrt_hm)?, ());
-        assert_eq!(mrt_hm.is_empty(), false);
-        Ok(())
-    }
-
-    #[ignore]
-    #[test]
-    fn can_parse_mrt_from_gz_url() -> Result<(), Error> {
-        let mut mrt_hm = HashMap::new();
-        let url = "http://data.ris.ripe.net/rrc01/latest-bview.gz"
-            .parse()
-            .unwrap();
-        assert_eq!(parse_mrt_from_gz_url(&url, &mut mrt_hm)?, ());
-        assert_eq!(mrt_hm.is_empty(), false);
-        let epoch = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap();
-        let now = epoch.as_secs();
-        let out_path = format!("data/rachel-2020-28-160000-data.{}.out", now);
-
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .append(true)
-            .open(&out_path)
-            .unwrap();
-
-        for (key, value) in mrt_hm {
-            let text = format!("{:?} {:?}", key, value);
-            writeln!(file, "{:?}", &text).unwrap();
-        }
         Ok(())
     }
 }

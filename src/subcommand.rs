@@ -75,11 +75,10 @@ impl Subcommand {
         let mut mrt_hm = HashMap::new();
 
         for path in dump {
-            let mut buffer =
-                BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
-                    io_error,
-                    path: path.into(),
-                })?);
+            let buffer = BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
+                io_error,
+                path: path.into(),
+            })?);
 
             let mut decoder = GzDecoder::new(buffer);
             mrt_parse::parse_mrt(&mut decoder, &mut mrt_hm)?;

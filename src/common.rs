@@ -1,8 +1,7 @@
 pub(crate) use std::{
     collections::{HashMap, HashSet},
-    convert::TryInto,
     fmt::{self, Display, Formatter},
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::{self, prelude::*, BufReader, BufWriter},
     net::IpAddr,
     path::{Path, PathBuf},
@@ -13,7 +12,6 @@ pub(crate) use std::{
 pub(crate) use flate2::read::GzDecoder;
 pub(crate) use mrt_rs::{tabledump::TABLE_DUMP_V2, Reader, Record};
 pub(crate) use structopt::StructOpt;
-pub(crate) use url::Url;
 
 pub(crate) use crate::{
     address::Address, as_path_parser::AsPathParser, error::Error, mrt_parse, opt::Opt,
