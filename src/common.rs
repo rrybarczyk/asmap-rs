@@ -16,7 +16,8 @@ pub(crate) use structopt::StructOpt;
 pub(crate) use url::Url;
 
 pub(crate) use crate::{
-    address::Address, data_op, error::Error, helper, mrt_parse, opt::Opt, subcommand::Subcommand,
+    address::Address, as_path_parser::AsPathParser, data_op, error::Error, helper, mrt_parse,
+    opt::Opt, subcommand::Subcommand,
 };
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;

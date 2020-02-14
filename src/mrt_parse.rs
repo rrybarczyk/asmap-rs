@@ -116,7 +116,7 @@ fn as_path_from_bgp_attributes(mut bgp_attributes: Vec<u8>) -> Result<Vec<u32>, 
                         return Ok(as_path);
                     }
                     _ => {
-                        return Err(Error::UnknownASValue {
+                        return Err(Error::UnknownAsValue {
                             unknown_as_value: as_set_indicator,
                         })
                     }
@@ -225,33 +225,6 @@ mod tests {
     }
 
     #[test]
-    fn finds_as_path_from_bgp_attributes_64() -> Result<(), Error> {
-        let bgp_attributes = vec![
-            64, 1, 1, 0, 64, 2, 14, 2, 3, 0, 0, 12, 231, 0, 0, 50, 74, 0, 3, 49, 30, 64, 3, 4, 195,
-            66, 224, 110, 192, 8, 28, 12, 231, 3, 232, 12, 231, 3, 238, 12, 231, 3, 252, 12, 231,
-            12, 21, 50, 74, 2, 188, 50, 74, 3, 243, 50, 74, 11, 210,
-        ];
-        let have = as_path_from_bgp_attributes(bgp_attributes)?;
-        let want = vec![3303, 12874, 209182];
-
-        assert_eq!(have, want);
-        Ok(())
-    }
-
-    #[test]
-    fn finds_as_path_from_bgp_attributes_80() -> Result<(), Error> {
-        let bgp_attributes = vec![
-            64, 1, 1, 0, 80, 2, 0, 10, 2, 2, 0, 0, 251, 15, 0, 0, 243, 32, 64, 3, 4, 195, 66, 225,
-            77,
-        ];
-        let have = as_path_from_bgp_attributes(bgp_attributes)?;
-        let want = vec![64271u32, 62240u32];
-
-        assert_eq!(want, have);
-        Ok(())
-    }
-
-    #[test]
     fn finds_common_suffix_from_mrt_hashmap() -> Result<(), Error> {
         let mut want: HashMap<Address, Vec<u32>> = HashMap::new();
         want.insert(Address::from_str("195.66.225.77/0")?, vec![64271, 62240]);
@@ -316,21 +289,6 @@ mod tests {
             let text = format!("{:?} {:?}", key, value);
             writeln!(file, "{:?}", &text).unwrap();
         }
-        Ok(())
-    }
-
-    #[test]
-    fn extracts_as_path_from_bgp_attributes_vector() -> Result<(), Error> {
-        let attributes = vec![
-            64, 1, 1, 0, 64, 2, 10, 2, 2, 0, 0, 165, 233, 0, 0, 5, 19, 64, 3, 4, 195, 66, 226, 113,
-            128, 4, 4, 0, 0, 0, 0, 192, 8, 24, 184, 43, 5, 222, 184, 43, 7, 208, 184, 43, 8, 64,
-            184, 43, 8, 252, 184, 43, 9, 112, 184, 43, 10, 40,
-        ];
-
-        let have = as_path_from_bgp_attributes(attributes)?;
-        let want = vec![42473u32, 1299u32];
-
-        assert_eq!(have, want);
         Ok(())
     }
 }

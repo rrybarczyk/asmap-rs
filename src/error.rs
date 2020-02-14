@@ -27,15 +27,19 @@ pub enum Error {
     MissingPathAttribute {
         missing_attribute: String,
     },
-    UnknownASValue {
+    UnknownAsValue {
         unknown_as_value: u8,
     },
+    UnexpectedEndOfBuffer,
+    MultipleAsPaths,
+    NoAsPathInAttributePath,
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use Error::*;
         match self {
-            Self::TryFromSlice {
+            TryFromSlice {
                 bad_input,
                 num_type,
                 error,
@@ -44,31 +48,39 @@ impl Display for Error {
                 "Failed to convert `{:?}` to a {} type: {}",
                 bad_input, num_type, error
             ),
-            Self::AddrParse {
+            AddrParse {
                 addr_parse,
                 bad_addr,
             } => write!(f, "Invalid address, {}: {}", addr_parse, bad_addr),
-            Self::NoSlash { bad_addr } => write!(
+            NoSlash { bad_addr } => write!(
                 f,
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
                 bad_addr
             ),
-            Self::IoError { io_error } => write!(f, "I/O error: {}", io_error),
-            Self::Reqwest { url, reqwest_error } => {
+            IoError { io_error } => write!(f, "I/O error: {}", io_error),
+            Reqwest { url, reqwest_error } => {
                 write!(f, "Failed request for {}. {}", url, reqwest_error)
             }
-            Self::UnknownTypeCode { unknown_type_code } => write!(
+            UnknownTypeCode { unknown_type_code } => write!(
                 f,
                 "Did not recognize type code `{}`, expected type code between 1 and 16.",
                 unknown_type_code
             ),
-            Self::MissingPathAttribute { missing_attribute } => {
+            MissingPathAttribute { missing_attribute } => {
                 write!(f, "Invalid mrt entry. Missing {}.", missing_attribute)
             }
-            Self::UnknownASValue { unknown_as_value } => write!(
+            UnknownAsValue { unknown_as_value } => write!(
                 f,
                 "Did not recognize as path value `{}`, expected AS_SET (1) or AS_SEQUENCE (2).",
                 unknown_as_value
+            ),
+            UnexpectedEndOfBuffer => write!(f, "Expected another byte but buffer is exhausted."),
+            NoAsPathInAttributePath => {
+                write!(f, "Expected an AS_PATH attribute in BGP Attribute Path.")
+            }
+            MultipleAsPaths => write!(
+                f,
+                "Expected one AS_PATH attribute in BGP Attribute Path, found multiple."
             ),
         }
     }
