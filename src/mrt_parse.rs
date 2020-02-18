@@ -15,6 +15,7 @@ pub(crate) fn parse_mrt(
             Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                 TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
                     for peer_entry in entry.peer_entries {
+                        info!("peer_entry: {:?}", &peer_entry);
                         let addr = Address {
                             ip: peer_entry.peer_ip_address,
                             mask: None,
@@ -27,6 +28,7 @@ pub(crate) fn parse_mrt(
                         let index = rib_entry.peer_index as usize;
                         addresses[index].mask = Some(entry.prefix_length);
 
+                        info!("rib_entry: {:?}", &rib_entry);
                         match AsPathParser::parse(&rib_entry.attributes) {
                             Ok(mut as_path) => {
                                 as_path.dedup();

@@ -10,7 +10,9 @@ pub(crate) use std::{
 };
 
 pub(crate) use flate2::read::GzDecoder;
+pub(crate) use log::*;
 pub(crate) use mrt_rs::{tabledump::TABLE_DUMP_V2, Reader, Record};
+pub(crate) use pretty_env_logger;
 pub(crate) use structopt::StructOpt;
 
 pub(crate) use crate::{

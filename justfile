@@ -18,7 +18,7 @@ test:
 	cargo watch --clear --ignore dump --shell "cargo test -- --nocapture"
 
 test-crate CRATE:
-	cargo watch --clear --shell "cargo test {{CRATE}} -- --nocapture"
+	RUST_LOG=debug cargo watch --clear --shell "cargo test {{CRATE}} -- --nocapture"
 
 run-cmd CMD:
 	cargo watch --clear --ignore dump --ignore data --shell "cargo run -- {{CMD}}"

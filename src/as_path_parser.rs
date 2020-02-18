@@ -10,8 +10,10 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Given a `buffer` with lifetime `'buffer`, constructs a new `AsPathParser` and parses the
     /// attributes.
     pub(crate) fn parse(buffer: &'buffer [u8]) -> Result<Vec<u32>> {
+        debug!("buffer: {:?}", &buffer);
+        debug!("buffer len: {}", buffer.len());
         if buffer.is_empty() {
-            println!("empty buffer!!!!");
+            warn!("Error::MissingPathAttribute, buffer: {:?}", buffer);
             return Err(Error::MissingPathAttribute {
                 missing_attribute: "all attributes".to_string(),
             });
@@ -27,6 +29,7 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Advances forward one in the buffer and returns that byte. Error if `buffer` is already exhausted.
     fn advance(&mut self) -> Result<u8> {
         if self.done() {
+            warn!("Error::UnexpectedEndOfBuffer {:?}", &self.buffer);
             Err(Error::UnexpectedEndOfBuffer)
         } else {
             let byte = self.buffer[self.next];
@@ -53,9 +56,11 @@ impl<'buffer> AsPathParser<'buffer> {
         let mut paths = Vec::new();
 
         while !self.done() {
+            debug!("self.next: {}", &self.next);
             if let Some(path) = self.parse_attribute()? {
                 // if there are no asn's in the as path
                 if path.is_empty() {
+                    warn!("Error::NoAsPathInAttributePath {:?}", &self.buffer);
                     return Err(Error::NoAsPathInAttributePath);
                 }
                 paths.push(path);
@@ -64,10 +69,12 @@ impl<'buffer> AsPathParser<'buffer> {
 
         if paths.len() > 1 {
             // Too many asn paths in path attributes
+            warn!("Error::MultipleAsPaths {:?}", &self.buffer);
             Err(Error::MultipleAsPaths)
         } else if let Some(path) = paths.pop() {
             Ok(path)
         } else {
+            warn!("Error::NoAsPathInAttributePath{:?}", &self.buffer);
             Err(Error::NoAsPathInAttributePath)
         }
     }
@@ -76,12 +83,14 @@ impl<'buffer> AsPathParser<'buffer> {
     fn parse_attribute(&mut self) -> Result<Option<Vec<u32>>> {
         let flag = self.advance()?;
         let type_code = self.advance()?;
+        debug!("type_code: {}", type_code);
         let mut attribute_length: u16 = self.advance()?.into();
 
         if (flag >> 4) & 1 == 1 {
             attribute_length <<= 8;
             attribute_length |= self.advance()? as u16;
         }
+        debug!("attribute_length: {}", attribute_length);
 
         if type_code == 2 {
             self.parse_as_path()
@@ -245,6 +254,19 @@ mod tests {
         ];
         let have = AsPathParser::parse(bgp_attributes)?;
         let want = &[42473u32, 1299u32];
+
+        assert_eq!(have, want);
+        Ok(())
+    }
+
+    #[test]
+    fn parses_attributes_3() -> Result<(), Error> {
+        let bgp_attributes = &[
+            64, 1, 1, 0, 80, 2, 0, 10, 2, 2, 0, 2, 1, 149, 0, 0, 229, 255, 64, 3, 4, 103, 102, 5,
+            1, 192, 16, 8, 2, 2, 0, 2, 1, 149, 0, 200,
+        ];
+        let have = AsPathParser::parse(bgp_attributes)?;
+        let want = &[131477u32, 58879u32];
 
         assert_eq!(have, want);
         Ok(())

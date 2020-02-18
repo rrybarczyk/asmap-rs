@@ -10,6 +10,7 @@ pub(crate) enum Subcommand {
         number: Vec<u32>,
     },
     Bottleneck {
+        /// Directory to read mrt formatted gz files from
         #[structopt(name = "DUMP", long = "dump", short = "d")]
         dump: Vec<PathBuf>,
 
