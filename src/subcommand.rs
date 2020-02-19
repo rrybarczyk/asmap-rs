@@ -71,47 +71,10 @@ impl Subcommand {
         Ok(())
     }
 
-    /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck
+    /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
     fn bottleneck(dump: &[PathBuf], out: Option<&Path>) -> Result<()> {
-        let mut mrt_hm = HashMap::new();
-
-        for path in dump {
-            let buffer = BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
-                io_error,
-                path: path.into(),
-            })?);
-
-            let mut decoder = GzDecoder::new(buffer);
-            mrt_parse::parse_mrt(&mut decoder, &mut mrt_hm)?;
-        }
-
-        let as_bottleneck = mrt_parse::find_as_bottleneck(&mut mrt_hm)?;
-
-        if let Some(path) = out {
-            let epoch = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-            let now = epoch.as_secs();
-            let dst = path.join(format!("bottleneck.{}.txt", now));
-            let mut file = File::create(&dst).map_err(|io_error| Error::IoError {
-                io_error,
-                path: dst.to_path_buf(),
-            })?;
-
-            Self::write_bottleneck(as_bottleneck, &mut file)?;
-        } else {
-            Self::write_bottleneck(as_bottleneck, &mut io::stdout())?;
-        };
-
-        Ok(())
-    }
-
-    /// Writes the asn bottleneck result to a file
-    fn write_bottleneck(mrt_hm: HashMap<Address, u32>, out: &mut dyn Write) -> Result<(), Error> {
-        for (key, value) in mrt_hm {
-            let text = format!("{}/{}|{:?}", key.ip, key.mask.unwrap(), value);
-            writeln!(out, "{:?}", &text).unwrap();
-        }
+        let bottleneck = Bottleneck::locate(dump)?;
+        bottleneck.write(out)?;
 
         Ok(())
     }
