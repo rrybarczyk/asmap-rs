@@ -3,7 +3,7 @@ use crate::common::*;
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub(crate) struct Address {
     pub(crate) ip: IpAddr,
-    pub(crate) mask: Option<u8>,
+    pub(crate) mask: u8,
 }
 
 impl FromStr for Address {
@@ -26,7 +26,7 @@ impl FromStr for Address {
             addr_parse,
             bad_addr: ip_str.to_string(),
         })?;
-        let mask = Some(ip_mask_vec[1].parse::<u8>().unwrap());
+        let mask = ip_mask_vec[1].parse::<u8>().unwrap();
         Ok(Address { ip, mask })
     }
 }
@@ -42,7 +42,7 @@ mod tests {
         let ip_and_mask = format!("{}/{}", ip, mask);
         let want = Address {
             ip: IpAddr::from_str(ip).unwrap(),
-            mask: Some(mask),
+            mask,
         };
 
         let have = Address::from_str(&ip_and_mask).unwrap();

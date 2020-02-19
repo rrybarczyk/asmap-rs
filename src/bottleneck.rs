@@ -69,15 +69,29 @@ impl Bottleneck {
             as_paths_sorted.sort_by(|a, b| a.len().cmp(&b.len())); // descending
 
             let mut rev_common_suffix: Vec<u32> = as_paths_sorted[0].to_vec();
-            // rev_common_suffix.reverse();
+            rev_common_suffix.reverse();
+
             for as_path in as_paths_sorted.iter().skip(1) {
                 // first one is already in rev_common_suffix
-                let rev_as_path: Vec<u32> = as_path.to_vec();
-                // rev_as_path.reverse();
+                let mut rev_as_path: Vec<u32> = as_path.to_vec();
+                rev_as_path.reverse();
 
-                // every IP should always belong to only one AS
-                assert!(rev_common_suffix.first() == rev_as_path.first());
-                // TODO: handle this error
+                // Every IP should always belong to only one AS
+                if rev_common_suffix.first() != rev_as_path.first() {
+                    error!(
+                        "bn: Every IP belongs to one AS: rev_common_suffix {:?}, rev_as_path: {:?}",
+                        &rev_common_suffix, &rev_as_path
+                    );
+                    debug!("bn: prefix: {:?}", &prefix);
+                    debug!("bn: as_paths_sorted: {:?}", &as_paths_sorted);
+                    debug!("bn: rev_common_suffix: {:?}", &rev_common_suffix);
+                    debug!(
+                        "bn: as_path in as_paths_sorted.iter().skip(1): {:?}",
+                        &as_path
+                    );
+                    debug!("bn: rev_as_path: {:?}", &rev_as_path);
+                    continue;
+                }
 
                 // first element is already checked
                 for i in 1..rev_common_suffix.len() {
@@ -104,43 +118,31 @@ impl Bottleneck {
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
 
-        let mut addresses: Vec<Address> = Vec::new();
         while let Some((_, record)) = reader.read().map_err(|io_error| Error::IoError {
             io_error,
-            path: PathBuf::from("fake"),
+            path: PathBuf::from("path to mrt data"),
         })? {
             match record {
                 Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
-                    TABLE_DUMP_V2::PEER_INDEX_TABLE(entry) => {
-                        info!("recordpeeridx: {:?}", &entry);
-                        for peer_entry in entry.peer_entries {
-                            let addr = Address {
-                                ip: peer_entry.peer_ip_address,
-                                mask: None,
-                            };
-                            addresses.push(addr);
-                        }
-                    }
                     TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                        info!("recordribipv4uni: {:?}", &entry);
-                        for rib_entry in entry.entries {
-                            let index = rib_entry.peer_index as usize;
-                            addresses[index].mask = Some(entry.prefix_length);
+                        let mask = entry.prefix_length;
+                        let mut ip = entry.prefix;
+                        while ip.len() < 4 {
+                            ip.push(0);
+                        }
+                        let text = format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], 0, mask);
+                        let addr = Address::from_str(&text)?;
 
-                            info!("rib_entry: {:?}", &rib_entry);
+                        for rib_entry in entry.entries {
                             match AsPathParser::parse(&rib_entry.attributes) {
                                 Ok(mut as_path) => {
                                     as_path.dedup();
-
                                     mrt_hm
-                                        .entry(addresses[index])
+                                        .entry(addr)
                                         .or_insert_with(HashSet::new)
                                         .insert(as_path);
                                 }
-                                Err(e) => {
-                                    println!("ERROR: {:?}", e);
-                                    continue;
-                                }
+                                Err(e) => error!("ERROR: {:?}. TODO: handle error.", e),
                             };
                         }
                     }
@@ -149,6 +151,7 @@ impl Bottleneck {
                 _ => continue,
             }
         }
+        info!("mrt_hm: {:?}", &mrt_hm);
         Ok(())
     }
 
@@ -176,7 +179,7 @@ impl Bottleneck {
     /// Helper write function
     fn write_bottleneck(self, out: &mut dyn Write) -> Result<(), Error> {
         for (key, value) in self.prefix_asn {
-            let text = format!("{}/{}|{:?}", key.ip, key.mask.unwrap(), value);
+            let text = format!("{}/{}|{:?}", key.ip, key.mask, value);
             writeln!(out, "{:?}", &text).unwrap();
         }
 
@@ -190,26 +193,48 @@ mod tests {
 
     fn setup_mrt_hm() -> Result<HashMap<Address, HashSet<Vec<u32>>>, Error> {
         let mut mrt_hm: HashMap<Address, HashSet<Vec<u32>>> = HashMap::new();
+        let ip_str = "1.0.139.0";
+        let addr = Address {
+            ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
+                addr_parse,
+                bad_addr: ip_str.to_string(),
+            })?,
+            mask: 24,
+        };
 
-        mrt_hm
-            .entry(Address::from_str("195.66.225.77/0")?)
-            .or_insert_with(HashSet::new)
-            .insert(vec![64271, 62240, 3356]);
+        let mut asn_paths = HashSet::new();
+        asn_paths.insert(vec![2497, 38040, 23969]);
+        asn_paths.insert(vec![25152, 6939, 4766, 38040, 23969]);
+        asn_paths.insert(vec![4777, 6939, 4766, 38040, 23969]);
+        mrt_hm.insert(addr, asn_paths);
 
-        mrt_hm
-            .entry(Address::from_str("195.66.225.77/0")?)
-            .or_insert_with(HashSet::new)
-            .insert(vec![64271, 62240, 174]);
+        let ip_str = "1.0.204.0";
+        let addr = Address {
+            ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
+                addr_parse,
+                bad_addr: ip_str.to_string(),
+            })?,
+            mask: 22,
+        };
+        let mut asn_paths = HashSet::new();
+        asn_paths.insert(vec![2497, 38040, 23969]);
+        asn_paths.insert(vec![4777, 6939, 4766, 38040, 23969]);
+        asn_paths.insert(vec![25152, 2914, 38040, 23969]);
+        mrt_hm.insert(addr, asn_paths);
 
-        mrt_hm
-            .entry(Address::from_str("5.57.81.186/24")?)
-            .or_insert_with(HashSet::new)
-            .insert(vec![6894, 13335, 38803, 56203]);
-
-        mrt_hm
-            .entry(Address::from_str("5.57.81.186/24")?)
-            .or_insert_with(HashSet::new)
-            .insert(vec![6894, 13335, 4826, 174]);
+        let ip_str = "1.0.6.0";
+        let addr = Address {
+            ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
+                addr_parse,
+                bad_addr: ip_str.to_string(),
+            })?,
+            mask: 24,
+        };
+        let mut asn_paths = HashSet::new();
+        asn_paths.insert(vec![2497, 4826, 38803, 56203]);
+        asn_paths.insert(vec![25152, 6939, 4826, 38803, 56203]);
+        asn_paths.insert(vec![4777, 6939, 4826, 38803, 56203]);
+        mrt_hm.insert(addr, asn_paths);
 
         Ok(mrt_hm)
     }
@@ -217,8 +242,9 @@ mod tests {
     #[test]
     fn finds_common_suffix_from_mrt_hashmap() -> Result<(), Error> {
         let mut want: HashMap<Address, Vec<u32>> = HashMap::new();
-        want.insert(Address::from_str("195.66.225.77/0")?, vec![64271, 62240]);
-        want.insert(Address::from_str("5.57.81.186/24")?, vec![6894, 13335]);
+        want.insert(Address::from_str("1.0.139.0/24")?, vec![23969, 38040]);
+        want.insert(Address::from_str("1.0.204.0/22")?, vec![23969, 38040]);
+        want.insert(Address::from_str("1.0.6.0/24")?, vec![56203, 38803, 4826]);
 
         let mut mrt_hm = setup_mrt_hm()?;
         let mut have: HashMap<Address, Vec<u32>> = HashMap::new();
@@ -233,9 +259,11 @@ mod tests {
     fn finds_as_bottleneck_from_mrt_hashmap() -> Result<(), Error> {
         let mut want = Bottleneck::new();
         want.prefix_asn
-            .insert(Address::from_str("195.66.225.77/0")?, 62240);
+            .insert(Address::from_str("1.0.139.0/24")?, 38040);
         want.prefix_asn
-            .insert(Address::from_str("5.57.81.186/24")?, 13335);
+            .insert(Address::from_str("1.0.204.0/22")?, 38040);
+        want.prefix_asn
+            .insert(Address::from_str("1.0.6.0/24")?, 4826);
 
         let mut have = Bottleneck::new();
         let mut mrt_hm = setup_mrt_hm()?;

@@ -93,7 +93,18 @@ impl<'buffer> AsPathParser<'buffer> {
         debug!("attribute_length: {}", attribute_length);
 
         if type_code == 2 {
-            self.parse_as_path()
+            let asn_attr_position_end = &self.next + attribute_length as usize;
+
+            let asn_path = self.parse_as_path();
+
+            if asn_attr_position_end != self.next {
+                let leftover_attr_count = asn_attr_position_end - self.next;
+                for _ in 0..leftover_attr_count {
+                    self.advance()?;
+                }
+            }
+
+            asn_path
         } else {
             for _ in 0..attribute_length {
                 self.advance()?;
@@ -267,6 +278,24 @@ mod tests {
         ];
         let have = AsPathParser::parse(bgp_attributes)?;
         let want = &[131477u32, 58879u32];
+
+        assert_eq!(have, want);
+        Ok(())
+    }
+
+    #[test]
+    fn parse_long_as_path_attr() -> Result<(), Error> {
+        let bgp_attributes = &[
+            64, 1, 1, 2, 64, 2, 24, 2, 4, 0, 0, 58, 59, 0, 0, 11, 98, 0, 0, 25, 53, 0, 0, 50, 49,
+            1, 1, 0, 0, 50, 49, 64, 3, 4, 27, 111, 228, 186, 192, 7, 8, 0, 0, 50, 49, 213, 57, 3,
+            1, 192, 8, 32, 11, 98, 1, 164, 11, 98, 5, 125, 11, 98, 9, 102, 11, 98, 13, 72, 25, 53,
+            7, 208, 25, 53, 8, 52, 25, 53, 8, 57, 58, 59, 0, 4,
+        ];
+
+        // 0, 0, 58, 59, 0, 0, 11, 98, 0, 0, 25, 53, 0, 0, 50, 49,
+
+        let have = AsPathParser::parse(bgp_attributes)?;
+        let want = &[14907u32, 2914u32, 6453u32, 12849u32];
 
         assert_eq!(have, want);
         Ok(())

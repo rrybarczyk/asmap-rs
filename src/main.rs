@@ -9,6 +9,5 @@ mod subcommand;
 use crate::common::*;
 fn main() -> Result<()> {
     pretty_env_logger::init();
-    trace!("tracing");
     Opt::from_args().run()
 }
