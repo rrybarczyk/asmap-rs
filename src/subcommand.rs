@@ -2,19 +2,23 @@ use crate::common::*;
 
 #[derive(Debug, PartialEq, StructOpt)]
 pub(crate) enum Subcommand {
+    /// Downloads and saves the MRT formatted gz files
     Download {
-        #[structopt(name = "OUT", long = "out", short = "o", default_value = "dump")]
-        out: PathBuf,
-
+        /// Range of specific RIS files to download [default: [00, 24]]
         #[structopt(name = "NUMBER", long = "number", short = "n", use_delimiter(true))]
         number: Vec<u32>,
+
+        /// Directory to write MRT formatted gz files
+        #[structopt(name = "OUT", long = "out", short = "o", default_value = "dump")]
+        out: PathBuf,
     },
+    /// Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
     Bottleneck {
-        /// Directory to read mrt formatted gz files from
+        /// Paths of MRT formatted gz files to find bottleneck of
         #[structopt(name = "DUMP", long = "dump", short = "d")]
         dump: Vec<PathBuf>,
 
-        /// Save to file if directory path is provided, otherwise print to stdout.
+        /// Directory to write result [default: print to stdout]
         #[structopt(name = "OUT", long = "out", short = "o")]
         out: Option<PathBuf>,
     },
