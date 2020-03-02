@@ -1,8 +1,8 @@
 mod address;
 mod as_path_parser;
-mod bottleneck;
 mod common;
 mod error;
+mod find_bottleneck;
 mod opt;
 mod subcommand;
 

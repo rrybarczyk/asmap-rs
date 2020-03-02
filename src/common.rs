@@ -16,7 +16,7 @@ pub(crate) use pretty_env_logger;
 pub(crate) use structopt::StructOpt;
 
 pub(crate) use crate::{
-    address::Address, as_path_parser::AsPathParser, bottleneck::FindBottleneck, error::Error,
+    address::Address, as_path_parser::AsPathParser, error::Error, find_bottleneck::FindBottleneck,
     opt::Opt, subcommand::Subcommand,
 };
 
