@@ -36,6 +36,9 @@ impl FindBottleneck {
         &mut self,
         mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
     ) -> Result<(), Error> {
+        // In the vector value, the first element is the final AS (so the actual AS of the IP,
+        // not some AS on the path). The last element is the critical AS on the path that
+        // determines the bottleneck.
         let mut prefix_to_common_suffix: HashMap<Address, Vec<u32>> = HashMap::new();
 
         Self::find_common_suffix(mrt_hm, &mut prefix_to_common_suffix)?;
