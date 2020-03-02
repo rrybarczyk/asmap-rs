@@ -10,10 +10,8 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Given a `buffer` with lifetime `'buffer`, constructs a new `AsPathParser` and parses the
     /// attributes.
     pub(crate) fn parse(buffer: &'buffer [u8]) -> Result<Vec<u32>> {
-        debug!("buffer: {:?}", &buffer);
-        debug!("buffer len: {}", buffer.len());
         if buffer.is_empty() {
-            warn!("Error::MissingPathAttribute, buffer: {:?}", buffer);
+            error!("Error::MissingPathAttribute, buffer: {:?}", buffer);
             return Err(Error::MissingPathAttribute {
                 missing_attribute: "all attributes".to_string(),
             });
@@ -29,7 +27,7 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Advances forward one in the buffer and returns that byte. Error if `buffer` is already exhausted.
     fn advance(&mut self) -> Result<u8> {
         if self.done() {
-            warn!("Error::UnexpectedEndOfBuffer {:?}", &self.buffer);
+            error!("Error::UnexpectedEndOfBuffer {:?}", &self.buffer);
             Err(Error::UnexpectedEndOfBuffer)
         } else {
             let byte = self.buffer[self.next];
@@ -56,11 +54,10 @@ impl<'buffer> AsPathParser<'buffer> {
         let mut paths = Vec::new();
 
         while !self.done() {
-            debug!("self.next: {}", &self.next);
             if let Some(path) = self.parse_attribute()? {
                 // if there are no asn's in the as path
                 if path.is_empty() {
-                    warn!("Error::NoAsPathInAttributePath {:?}", &self.buffer);
+                    error!("Error::NoAsPathInAttributePath {:?}", &self.buffer);
                     return Err(Error::NoAsPathInAttributePath);
                 }
                 paths.push(path);
@@ -69,12 +66,12 @@ impl<'buffer> AsPathParser<'buffer> {
 
         if paths.len() > 1 {
             // Too many asn paths in path attributes
-            warn!("Error::MultipleAsPaths {:?}", &self.buffer);
+            error!("Error::MultipleAsPaths {:?}", &self.buffer);
             Err(Error::MultipleAsPaths)
         } else if let Some(path) = paths.pop() {
             Ok(path)
         } else {
-            warn!("Error::NoAsPathInAttributePath{:?}", &self.buffer);
+            error!("Error::NoAsPathInAttributePath{:?}", &self.buffer);
             Err(Error::NoAsPathInAttributePath)
         }
     }
@@ -83,14 +80,12 @@ impl<'buffer> AsPathParser<'buffer> {
     fn parse_attribute(&mut self) -> Result<Option<Vec<u32>>> {
         let flag = self.advance()?;
         let type_code = self.advance()?;
-        debug!("type_code: {}", type_code);
         let mut attribute_length: u16 = self.advance()?.into();
 
         if (flag >> 4) & 1 == 1 {
             attribute_length <<= 8;
             attribute_length |= self.advance()? as u16;
         }
-        debug!("attribute_length: {}", attribute_length);
 
         if type_code == 2 {
             let asn_attr_position_end = &self.next + attribute_length as usize;

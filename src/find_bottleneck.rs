@@ -75,18 +75,10 @@ impl FindBottleneck {
 
                 // Every IP should always belong to only one AS
                 if rev_common_suffix.first() != rev_as_path.first() {
-                    error!(
-                        "bn: Every IP belongs to one AS: rev_common_suffix {:?}, rev_as_path: {:?}",
-                        &rev_common_suffix, &rev_as_path
+                    warn!(
+                        "Every IP should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
+                        &prefix, &as_paths
                     );
-                    debug!("bn: prefix: {:?}", &prefix);
-                    debug!("bn: as_paths_sorted: {:?}", &as_paths_sorted);
-                    debug!("bn: rev_common_suffix: {:?}", &rev_common_suffix);
-                    debug!(
-                        "bn: as_path in as_paths_sorted.iter().skip(1): {:?}",
-                        &as_path
-                    );
-                    debug!("bn: rev_as_path: {:?}", &rev_as_path);
                     continue;
                 }
 
@@ -136,7 +128,6 @@ impl FindBottleneck {
                 _ => continue,
             }
         }
-        info!("mrt_hm: {:?}", &mrt_hm);
         Ok(())
     }
 
