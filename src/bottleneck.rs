@@ -2,18 +2,12 @@ use crate::common::*;
 
 /// Contains the mapping of each prefix to its bottleneck asn.
 #[derive(Debug, PartialEq)]
-pub(crate) struct Bottleneck {
+pub(crate) struct FindBottleneck {
     prefix_asn: HashMap<Address, u32>,
 }
 
-impl Bottleneck {
-    pub(crate) fn new() -> Self {
-        Bottleneck {
-            prefix_asn: HashMap::new(),
-        }
-    }
-
-    /// Creates a new `Bottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
+impl FindBottleneck {
+    /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
     pub(crate) fn locate(dump: &[PathBuf]) -> Result<Self> {
         let mut mrt_hm = HashMap::new();
 
@@ -27,7 +21,7 @@ impl Bottleneck {
             Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
         }
 
-        let mut bottleneck = Bottleneck {
+        let mut bottleneck = FindBottleneck {
             prefix_asn: HashMap::new(),
         };
         bottleneck.find_as_bottleneck(&mut mrt_hm)?;
@@ -249,7 +243,10 @@ mod tests {
         let mut mrt_hm = setup_mrt_hm()?;
         let mut have: HashMap<Address, Vec<u32>> = HashMap::new();
 
-        assert_eq!(Bottleneck::find_common_suffix(&mut mrt_hm, &mut have)?, ());
+        assert_eq!(
+            FindBottleneck::find_common_suffix(&mut mrt_hm, &mut have)?,
+            ()
+        );
         assert_eq!(have, want);
 
         Ok(())
@@ -257,7 +254,9 @@ mod tests {
 
     #[test]
     fn finds_as_bottleneck_from_mrt_hashmap() -> Result<(), Error> {
-        let mut want = Bottleneck::new();
+        let mut want = FindBottleneck {
+            prefix_asn: HashMap::new(),
+        };
         want.prefix_asn
             .insert(Address::from_str("1.0.139.0/24")?, 38040);
         want.prefix_asn
@@ -265,7 +264,9 @@ mod tests {
         want.prefix_asn
             .insert(Address::from_str("1.0.6.0/24")?, 4826);
 
-        let mut have = Bottleneck::new();
+        let mut have = FindBottleneck {
+            prefix_asn: HashMap::new(),
+        };
         let mut mrt_hm = setup_mrt_hm()?;
         have.find_as_bottleneck(&mut mrt_hm)?;
 

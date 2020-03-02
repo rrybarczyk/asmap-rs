@@ -17,10 +17,9 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
-    bottleneck    Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves
-                  result
-    download      Downloads and saves the MRT formatted gz files
-    help          Prints this message or the help of the given subcommand(s)
+    find-bottleneck		Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
+    download      		Downloads and saves the MRT formatted gz files
+    help          		Prints this message or the help of the given subcommand(s)
 ```
 
 ### Download RIS Raw Data
@@ -36,8 +35,9 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -n, --number <NUMBER>...    Range of specific RIS files to download [default: [00, 24]]
-    -o, --out <OUT>             Directory to write MRT formatted gz files [default: dump]
+    -o, --out <OUT>  Directory to write MRT formatted gz files [default: dump]
+    -n, --ripe_collector_number <RIPE_COLLECTOR_NUMBER>...
+										 Range of specific RIS files to download [default: [00, 24]]
 ```
 
 #### Download RIS Raw Data Examples
@@ -60,11 +60,11 @@ cargo run --release download -n 3
 
 ### Find ASN Bottleneck
 ```
-asmap-rs-bottleneck 0.1.0
+asmap-rs find-bottleneck 0.1.0
 Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
 
 USAGE:
-    asmap-rs bottleneck [OPTIONS]
+    asmap-rs find-bottleneck [OPTIONS]
 
 FLAGS:
     -h, --help       Prints help information
@@ -75,13 +75,13 @@ OPTIONS:
     -o, --out <OUT>         Directory to write result [default: print to stdout]
 ```
 
-### Find ASN Bottleneck Example
+### Find Bottleneck ASN Example
 Finds bottleneck from the data located in the `dump/rrc03-latest-bview.gz` and prints bottleneck results to stdout.
 ```
-$ cargo run --release bottleneck -d dump/rrc03-latest-bview.gz
+$ cargo run --release find-bottleneck -d dump/rrc03-latest-bview.gz
 ```
 
 Finds bottleneck from the data located in the `dump/rrc03-latest-bview.gz` and `dump/rrc14-latest-bview.gz` files and writes the bottleneck results to `bottleneck/bottleneck.<epoch>.txt`.
 ```
-$ cargo run --release bottleneck -d dump-dir/rrc03-latest-bview.gz dump-dir/rrc14-latest-bview.gz -o bottleneck
+$ cargo run --release find-bottleneck -d dump-dir/rrc03-latest-bview.gz dump-dir/rrc14-latest-bview.gz -o bottleneck
 ```

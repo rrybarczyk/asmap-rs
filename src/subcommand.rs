@@ -5,15 +5,20 @@ pub(crate) enum Subcommand {
     /// Downloads and saves the MRT formatted gz files
     Download {
         /// Range of specific RIS files to download [default: [00, 24]]
-        #[structopt(name = "NUMBER", long = "number", short = "n", use_delimiter(true))]
-        number: Vec<u32>,
+        #[structopt(
+            name = "RIPE_COLLECTOR_NUMBER",
+            long = "ripe_collector_number",
+            short = "n",
+            use_delimiter(true)
+        )]
+        ripe_collector_number: Vec<u32>,
 
         /// Directory to write MRT formatted gz files
         #[structopt(name = "OUT", long = "out", short = "o", default_value = "dump")]
         out: PathBuf,
     },
     /// Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
-    Bottleneck {
+    FindBottleneck {
         /// Paths of MRT formatted gz files to find bottleneck of
         #[structopt(name = "DUMP", long = "dump", short = "d")]
         dump: Vec<PathBuf>,
@@ -27,25 +32,28 @@ pub(crate) enum Subcommand {
 impl Subcommand {
     pub(crate) fn run(self) -> Result<(), Error> {
         match self {
-            Self::Download { out, number } => Self::download(&out, &number),
-            Self::Bottleneck { dump, out } => Self::bottleneck(&dump, out.as_deref()),
+            Self::Download {
+                out,
+                ripe_collector_number,
+            } => Self::download(&out, &ripe_collector_number),
+            Self::FindBottleneck { dump, out } => Self::find_bottleneck(&dump, out.as_deref()),
         }
     }
 
     /// Downloads the gz file from data.ris.ripe.net and save to the corresponding directory.
-    fn download(out: &Path, number: &[u32]) -> Result<()> {
+    fn download(out: &Path, ripe_collector_number: &[u32]) -> Result<()> {
         // Create target directory
         fs::create_dir_all(out).map_err(|io_error| Error::IoError {
             io_error,
             path: out.into(),
         })?;
 
-        if number.is_empty() {
+        if ripe_collector_number.is_empty() {
             for i in 0..=24 {
                 Self::download_file(out, i)?;
             }
         } else {
-            for i in number {
+            for i in ripe_collector_number {
                 Self::download_file(out, *i)?;
             }
         }
@@ -76,8 +84,8 @@ impl Subcommand {
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
-    fn bottleneck(dump: &[PathBuf], out: Option<&Path>) -> Result<()> {
-        let bottleneck = Bottleneck::locate(dump)?;
+    fn find_bottleneck(dump: &[PathBuf], out: Option<&Path>) -> Result<()> {
+        let bottleneck = FindBottleneck::locate(dump)?;
         bottleneck.write(out)?;
 
         Ok(())

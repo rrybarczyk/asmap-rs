@@ -16,8 +16,8 @@ pub(crate) use pretty_env_logger;
 pub(crate) use structopt::StructOpt;
 
 pub(crate) use crate::{
-    address::Address, as_path_parser::AsPathParser, bottleneck::Bottleneck, error::Error, opt::Opt,
-    subcommand::Subcommand,
+    address::Address, as_path_parser::AsPathParser, bottleneck::FindBottleneck, error::Error,
+    opt::Opt, subcommand::Subcommand,
 };
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;

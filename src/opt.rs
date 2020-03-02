@@ -22,12 +22,13 @@ mod tests {
 
     #[test]
     fn cli_download_basic() -> Result<(), structopt::clap::Error> {
-        let have = Opt::from_iter_safe(vec!["asmap", "download", "--number", "1,2"])?;
+        let have =
+            Opt::from_iter_safe(vec!["asmap", "download", "--ripe_collector_number", "1,2"])?;
 
         let want = Opt {
             cmd: Subcommand::Download {
                 out: "dump".into(),
-                number: vec![1, 2],
+                ripe_collector_number: vec![1, 2],
             },
         };
 
