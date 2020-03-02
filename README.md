@@ -1,7 +1,6 @@
 # asmap-rs
 A tool to assist the [asmap](https://github.com/sipa/asmap) project read and parse RIS raw data from the [RIPE NCC](https://www.ripe.net/analyse/internet-measurements/routing-information-service-ris/ris-raw-data).
 The data is collected using Quagga routing software and stored in MRT format. 
-This tool is a Rust implementation of [this PR](https://github.com/sipa/asmap/pull/1) by [naumenkogs](https://github.com/naumenkogs).
 
 ## Run
 ```
