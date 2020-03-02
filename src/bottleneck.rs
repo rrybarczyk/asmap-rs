@@ -122,41 +122,13 @@ impl FindBottleneck {
             match record {
                 Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                     TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                        let mask = entry.prefix_length;
                         let mut ip = entry.prefix;
-                        while ip.len() < 4 {
-                            ip.push(0);
-                        }
-                        let text = format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], ip[3], mask);
+                        let text = Self::format_ip(&mut ip, entry.prefix_length, true)?;
                         Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
                     }
                     TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
-                        let mask = entry.prefix_length;
                         let mut ip = entry.prefix;
-                        while ip.len() < 8 {
-                            ip.push(0);
-                        }
-                        let mut ipv6 = Vec::new();
-                        ip.reverse();
-                        while ipv6.len() < 4 {
-                            let a = match ip.pop() {
-                                Some(x) => x,
-                                None => 0,
-                            };
-                            let b = match ip.pop() {
-                                Some(x) => x,
-                                None => 0,
-                            };
-                            if a == 0 && b == 0 {
-                                ipv6.push(':'.to_string());
-                                break;
-                            } else {
-                                let n = format!("{:x}", u16::from_be_bytes([a, b]));
-                                ipv6.push(n);
-                            }
-                        }
-                        let ipv6_str = ipv6.join(":");
-                        let text = format!("{}/{}", ipv6_str, mask);
+                        let text = Self::format_ip(&mut ip, entry.prefix_length, false)?;
                         Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
                     }
                     _ => continue,
@@ -166,6 +138,41 @@ impl FindBottleneck {
         }
         info!("mrt_hm: {:?}", &mrt_hm);
         Ok(())
+    }
+
+    /// Format IPV4 and IPV6 as String.
+    fn format_ip(ip: &mut Vec<u8>, mask: u8, is_ipv4: bool) -> Result<String> {
+        if is_ipv4 {
+            while ip.len() < 4 {
+                ip.push(0);
+            }
+            Ok(format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], ip[3], mask))
+        } else {
+            while ip.len() < 8 {
+                ip.push(0);
+            }
+            let mut ipv6 = Vec::new();
+            ip.reverse();
+            while ipv6.len() < 4 {
+                let a = match ip.pop() {
+                    Some(x) => x,
+                    None => 0,
+                };
+                let b = match ip.pop() {
+                    Some(x) => x,
+                    None => 0,
+                };
+                if a == 0 && b == 0 {
+                    ipv6.push(':'.to_string());
+                    break;
+                } else {
+                    let n = format!("{:x}", u16::from_be_bytes([a, b]));
+                    ipv6.push(n);
+                }
+            }
+            let ipv6_str = ipv6.join(":");
+            Ok(format!("{}/{}", ipv6_str, mask))
+        }
     }
 
     /// Parse each RIB Entry.
