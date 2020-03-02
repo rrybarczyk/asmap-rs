@@ -130,7 +130,7 @@ impl Bottleneck {
                         while ip.len() < 4 {
                             ip.push(0);
                         }
-                        let text = format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], 0, mask);
+                        let text = format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], ip[3], mask);
                         let addr = Address::from_str(&text)?;
 
                         for rib_entry in entry.entries {

@@ -113,7 +113,7 @@ impl<'buffer> AsPathParser<'buffer> {
         }
     }
 
-    /// Takes self and reutnrs a vec of asn
+    /// Takes self and returns a vec of asn
     fn parse_as_path(&mut self) -> Result<Option<Vec<u32>>> {
         let as_set_indicator = self.advance()?;
 

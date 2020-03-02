@@ -32,7 +32,7 @@ impl Subcommand {
         }
     }
 
-    /// Downloads the gz file from data.ris.ripe.net and save to `dump` directory.
+    /// Downloads the gz file from data.ris.ripe.net and save to the corresponding directory.
     fn download(out: &Path, number: &[u32]) -> Result<()> {
         // Create target directory
         fs::create_dir_all(out).map_err(|io_error| Error::IoError {
