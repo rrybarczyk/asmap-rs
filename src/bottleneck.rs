@@ -128,20 +128,36 @@ impl FindBottleneck {
                             ip.push(0);
                         }
                         let text = format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], ip[3], mask);
-                        let addr = Address::from_str(&text)?;
-
-                        for rib_entry in entry.entries {
-                            match AsPathParser::parse(&rib_entry.attributes) {
-                                Ok(mut as_path) => {
-                                    as_path.dedup();
-                                    mrt_hm
-                                        .entry(addr)
-                                        .or_insert_with(HashSet::new)
-                                        .insert(as_path);
-                                }
-                                Err(e) => error!("ERROR: {:?}. TODO: handle error.", e),
-                            };
+                        Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
+                    }
+                    TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
+                        let mask = entry.prefix_length;
+                        let mut ip = entry.prefix;
+                        while ip.len() < 8 {
+                            ip.push(0);
                         }
+                        let mut ipv6 = Vec::new();
+                        ip.reverse();
+                        while ipv6.len() < 4 {
+                            let a = match ip.pop() {
+                                Some(x) => x,
+                                None => 0,
+                            };
+                            let b = match ip.pop() {
+                                Some(x) => x,
+                                None => 0,
+                            };
+                            if a == 0 && b == 0 {
+                                ipv6.push(':'.to_string());
+                                break;
+                            } else {
+                                let n = format!("{:x}", u16::from_be_bytes([a, b]));
+                                ipv6.push(n);
+                            }
+                        }
+                        let ipv6_str = ipv6.join(":");
+                        let text = format!("{}/{}", ipv6_str, mask);
+                        Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
                     }
                     _ => continue,
                 },
@@ -152,6 +168,28 @@ impl FindBottleneck {
         Ok(())
     }
 
+    /// Parse each RIB Entry.
+    fn match_rib_entry(
+        entries: Vec<mrt_rs::records::tabledump::RIBEntry>,
+        text: &str,
+        mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+    ) -> Result<()> {
+        let addr = Address::from_str(&text)?;
+
+        for rib_entry in entries {
+            match AsPathParser::parse(&rib_entry.attributes) {
+                Ok(mut as_path) => {
+                    as_path.dedup();
+                    mrt_hm
+                        .entry(addr)
+                        .or_insert_with(HashSet::new)
+                        .insert(as_path);
+                }
+                Err(e) => error!("ERROR: {:?}. TODO: handle error.", e),
+            };
+        }
+        Ok(())
+    }
     /// Writes the asn bottleneck result to a stdout or a time stamped file
     pub(crate) fn write(self, out: Option<&Path>) -> Result<()> {
         if let Some(path) = out {

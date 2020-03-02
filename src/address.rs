@@ -36,9 +36,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn address_from_str() -> Result<(), Error> {
+    fn address_from_str_ipv4() -> Result<(), Error> {
         let ip = "127.0.0.1";
         let mask = 23;
+        let ip_and_mask = format!("{}/{}", ip, mask);
+        let want = Address {
+            ip: IpAddr::from_str(ip).unwrap(),
+            mask,
+        };
+
+        let have = Address::from_str(&ip_and_mask).unwrap();
+
+        assert_eq!(have, want);
+
+        Ok(())
+    }
+    #[test]
+    fn address_from_str_ipv6() -> Result<(), Error> {
+        let ip = "2001::";
+        let mask = 32;
         let ip_and_mask = format!("{}/{}", ip, mask);
         let want = Address {
             ip: IpAddr::from_str(ip).unwrap(),

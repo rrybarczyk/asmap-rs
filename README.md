@@ -3,8 +3,6 @@ A tool to assist the [asmap](https://github.com/sipa/asmap) project read and par
 The data is collected using Quagga routing software and stored in MRT format. 
 This tool is a Rust implementation of [this PR](https://github.com/sipa/asmap/pull/1) by [naumenkogs](https://github.com/naumenkogs).
 
-This tool only parses IPv4, not IPv6.
-
 ## Run
 ```
 Parse mrt formatted files and find asn bottleneck
