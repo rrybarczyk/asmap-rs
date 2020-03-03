@@ -60,7 +60,7 @@ impl FindBottleneck {
         mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
         prefix_to_common_suffix: &mut HashMap<Address, Vec<u32>>,
     ) -> Result<(), Error> {
-        for (prefix, as_paths) in mrt_hm.iter() {
+        'outer: for (prefix, as_paths) in mrt_hm.iter() {
             let mut as_paths_sorted: Vec<&Vec<u32>> = as_paths.iter().collect();
 
             as_paths_sorted.sort_by(|a, b| a.len().cmp(&b.len())); // descending
@@ -75,11 +75,11 @@ impl FindBottleneck {
 
                 // Every IP should always belong to only one AS
                 if rev_common_suffix.first() != rev_as_path.first() {
-                    warn!(
-                        "Every IP should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
-                        &prefix, &as_paths
-                    );
-                    continue;
+                    println!(
+                            "Every IP should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
+                            &prefix, &as_paths
+                        );
+                    continue 'outer;
                 }
 
                 // first element is already checked
