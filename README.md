@@ -70,17 +70,17 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -d, --dump <DUMP>...    Paths of MRT formatted gz files to find bottleneck of
-    -o, --out <OUT>         Directory to write result [default: print to stdout]
+    -d, --dir <DIRECTORY>    Directory path of the MRT formatted gz files to find bottleneck of
+    -o, --out <OUT>          Directory to write result [default: print to stdout]
 ```
 
 ### Find Bottleneck ASN Example
-Finds bottleneck from the data located in the `dump/rrc03-latest-bview.gz` and prints bottleneck results to stdout.
+Finds bottleneck from the data located in the `dump` and prints bottleneck results to stdout.
 ```
-$ cargo run --release find-bottleneck -d dump/rrc03-latest-bview.gz
+$ cargo run --release find-bottleneck -d dump
 ```
 
-Finds bottleneck from the data located in the `dump/rrc03-latest-bview.gz` and `dump/rrc14-latest-bview.gz` files and writes the bottleneck results to `bottleneck/bottleneck.<epoch>.txt`.
+Finds bottleneck from the data located in the `dump` directory and writes the bottleneck results to `bottleneck/bottleneck.<epoch>.txt`.
 ```
-$ cargo run --release find-bottleneck -d dump-dir/rrc03-latest-bview.gz dump-dir/rrc14-latest-bview.gz -o bottleneck
+$ cargo run --release find-bottleneck -d dump -o bottleneck
 ```

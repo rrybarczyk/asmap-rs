@@ -19,9 +19,9 @@ pub(crate) enum Subcommand {
     },
     /// Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
     FindBottleneck {
-        /// Paths of MRT formatted gz files to find bottleneck of
-        #[structopt(name = "DUMP", long = "dump", short = "d")]
-        dump: Vec<PathBuf>,
+        /// Directory path of the MRT formatted gz files to find bottleneck of
+        #[structopt(name = "DIRECTORY", long = "dir", short = "d")]
+        dir: PathBuf,
 
         /// Directory to write result [default: print to stdout]
         #[structopt(name = "OUT", long = "out", short = "o")]
@@ -36,7 +36,7 @@ impl Subcommand {
                 out,
                 ripe_collector_number,
             } => Self::download(&out, &ripe_collector_number),
-            Self::FindBottleneck { dump, out } => Self::find_bottleneck(&dump, out.as_deref()),
+            Self::FindBottleneck { dir, out } => Self::find_bottleneck(&dir, out.as_deref()),
         }
     }
 
@@ -84,7 +84,7 @@ impl Subcommand {
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
-    fn find_bottleneck(dump: &[PathBuf], out: Option<&Path>) -> Result<()> {
+    fn find_bottleneck(dump: &PathBuf, out: Option<&Path>) -> Result<()> {
         let bottleneck = FindBottleneck::locate(dump)?;
         bottleneck.write(out)?;
 

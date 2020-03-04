@@ -8,17 +8,28 @@ pub(crate) struct FindBottleneck {
 
 impl FindBottleneck {
     /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
-    pub(crate) fn locate(dump: &[PathBuf]) -> Result<Self> {
+    pub(crate) fn locate(dir: &PathBuf) -> Result<Self> {
         let mut mrt_hm = HashMap::new();
-
-        for path in dump {
-            let buffer = BufReader::new(File::open(path).map_err(|io_error| Error::IoError {
+        // Walk the directory and read its contents
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
                 io_error,
-                path: path.into(),
-            })?);
+                path: "path".into(),
+            })? {
+                let entry = entry.map_err(|io_error| Error::IoError {
+                    io_error,
+                    path: "path".into(),
+                })?;
+                let path = entry.path();
+                let buffer =
+                    BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
+                        io_error,
+                        path: path.into(),
+                    })?);
 
-            let mut decoder = GzDecoder::new(buffer);
-            Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
+                let mut decoder = GzDecoder::new(buffer);
+                Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
+            }
         }
 
         let mut bottleneck = FindBottleneck {
