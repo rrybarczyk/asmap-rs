@@ -51,6 +51,7 @@ mod tests {
 
         Ok(())
     }
+
     #[test]
     fn address_from_str_ipv6() -> Result<(), Error> {
         let ip = "2001::";

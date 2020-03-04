@@ -114,14 +114,14 @@ impl FindBottleneck {
             match record {
                 Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                     TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                        let mut ip = entry.prefix;
-                        let text = Self::format_ip(&mut ip, entry.prefix_length, true)?;
-                        Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
+                        let ip = Self::format_ip(&entry.prefix, true)?;
+                        let mask = entry.prefix_length;
+                        Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                     }
                     TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
-                        let mut ip = entry.prefix;
-                        let text = Self::format_ip(&mut ip, entry.prefix_length, false)?;
-                        Self::match_rib_entry(entry.entries, &text, mrt_hm)?;
+                        let ip = Self::format_ip(&entry.prefix, false)?;
+                        let mask = entry.prefix_length;
+                        Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                     }
                     _ => continue,
                 },
@@ -131,48 +131,36 @@ impl FindBottleneck {
         Ok(())
     }
 
-    /// Format IPV4 and IPV6 as String.
-    fn format_ip(ip: &mut Vec<u8>, mask: u8, is_ipv4: bool) -> Result<String> {
+    /// Format IPV4 and IPV6 from slice.
+    fn format_ip(ip: &[u8], is_ipv4: bool) -> Result<IpAddr> {
+        let pad = &[0; 17];
+        let ip = [ip, pad].concat();
         if is_ipv4 {
-            while ip.len() < 4 {
-                ip.push(0);
-            }
-            Ok(format!("{}.{}.{}.{}/{}", ip[0], ip[1], ip[2], ip[3], mask))
+            Ok(IpAddr::V4(std::net::Ipv4Addr::new(
+                ip[0], ip[1], ip[2], ip[3],
+            )))
         } else {
-            while ip.len() < 8 {
-                ip.push(0);
-            }
-            let mut ipv6 = Vec::new();
-            ip.reverse();
-            while ipv6.len() < 4 {
-                let a = match ip.pop() {
-                    Some(x) => x,
-                    None => 0,
-                };
-                let b = match ip.pop() {
-                    Some(x) => x,
-                    None => 0,
-                };
-                if a == 0 && b == 0 {
-                    ipv6.push(':'.to_string());
-                    break;
-                } else {
-                    let n = format!("{:x}", u16::from_be_bytes([a, b]));
-                    ipv6.push(n);
-                }
-            }
-            let ipv6_str = ipv6.join(":");
-            Ok(format!("{}/{}", ipv6_str, mask))
+            Ok(IpAddr::V6(std::net::Ipv6Addr::new(
+                u16::from_be_bytes([ip[0], ip[1]]),
+                u16::from_be_bytes([ip[2], ip[3]]),
+                u16::from_be_bytes([ip[4], ip[5]]),
+                u16::from_be_bytes([ip[7], ip[8]]),
+                u16::from_be_bytes([ip[9], ip[10]]),
+                u16::from_be_bytes([ip[11], ip[12]]),
+                u16::from_be_bytes([ip[13], ip[14]]),
+                u16::from_be_bytes([ip[15], ip[16]]),
+            )))
         }
     }
 
     /// Parse each RIB Entry.
     fn match_rib_entry(
         entries: Vec<mrt_rs::records::tabledump::RIBEntry>,
-        text: &str,
+        ip: IpAddr,
+        mask: u8,
         mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
     ) -> Result<()> {
-        let addr = Address::from_str(&text)?;
+        let addr = Address { ip, mask };
 
         for rib_entry in entries {
             match AsPathParser::parse(&rib_entry.attributes) {
@@ -310,6 +298,22 @@ mod tests {
         have.find_as_bottleneck(&mut mrt_hm)?;
 
         assert_eq!(have, want);
+
+        Ok(())
+    }
+
+    #[test]
+    fn ipaddr_from_ipv6_short() -> Result<(), Error> {
+        let have = FindBottleneck::format_ip(&[32, 1, 3, 24], false)?;
+        assert_eq!("2001:318::".parse(), Ok(have));
+
+        Ok(())
+    }
+
+    #[test]
+    fn ipaddr_from_ipv6_long() -> Result<(), Error> {
+        let have = FindBottleneck::format_ip(&[32, 1, 2, 248, 16, 8], false)?;
+        assert_eq!("2001:2f8:1008::".parse(), Ok(have));
 
         Ok(())
     }
