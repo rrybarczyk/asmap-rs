@@ -21,6 +21,7 @@ impl FindBottleneck {
                     path: "path".into(),
                 })?;
                 let path = entry.path();
+                println!("Reading in `{:?}`", &path);
                 let buffer =
                     BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
                         io_error,
@@ -118,25 +119,36 @@ impl FindBottleneck {
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
 
-        while let Some((_, record)) = reader.read().map_err(|io_error| Error::IoError {
-            io_error,
-            path: PathBuf::from("path to mrt data"),
-        })? {
-            match record {
-                Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
-                    TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
-                        let ip = Self::format_ip(&entry.prefix, true)?;
-                        let mask = entry.prefix_length;
-                        Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
-                    }
-                    TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
-                        let ip = Self::format_ip(&entry.prefix, false)?;
-                        let mask = entry.prefix_length;
-                        Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
-                    }
-                    _ => continue,
+        loop {
+            match reader.read() {
+                Ok(header_record) => match header_record {
+                    Some((_, record)) => match record {
+                        Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
+                            TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
+                                let ip = Self::format_ip(&entry.prefix, true)?;
+                                let mask = entry.prefix_length;
+                                Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
+                            }
+                            TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
+                                let ip = Self::format_ip(&entry.prefix, false)?;
+                                let mask = entry.prefix_length;
+                                Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
+                            }
+                            _ => continue,
+                        },
+                        _ => continue,
+                    },
+                    None => break,
                 },
-                _ => continue,
+                Err(e) => match e.kind() {
+                    std::io::ErrorKind::InvalidInput => {
+                        println!("Invalid gzip header. Skipping file.")
+                    }
+                    other_error => println!(
+                        "Problem with gzip mrt file. `{:?}`. Skipping file.",
+                        other_error
+                    ),
+                },
             }
         }
         Ok(())
