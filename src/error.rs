@@ -1,13 +1,10 @@
-pub(crate) use crate::common::*;
+use crate::common::*;
 
 #[derive(Debug)]
-pub(crate) enum Error {
+pub enum Error {
     IoError {
         io_error: std::io::Error,
-    },
-    ParseInt {
-        bad_num: String,
-        error: std::num::ParseIntError,
+        path: PathBuf,
     },
     AddrParse {
         addr_parse: std::net::AddrParseError,
@@ -16,32 +13,56 @@ pub(crate) enum Error {
     NoSlash {
         bad_addr: String,
     },
-    NoPipe {
-        bad_quagga: String,
+    Reqwest {
+        url: String,
+        reqwest_error: reqwest::Error,
     },
+    MissingPathAttribute {
+        missing_attribute: String,
+    },
+    UnknownAsValue {
+        unknown_as_value: u8,
+    },
+    UnexpectedEndOfBuffer,
+    MultipleAsPaths,
+    NoAsPathInAttributePath,
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use Error::*;
         match self {
-            Self::ParseInt { bad_num, error } => {
-                write!(f, "Failed to parse u32 `{}`: {}", bad_num, error)
-            }
-            Self::AddrParse {
+            AddrParse {
                 addr_parse,
                 bad_addr,
             } => write!(f, "Invalid address, {}: {}", addr_parse, bad_addr),
-            Self::NoSlash { bad_addr } => write!(
+            NoSlash { bad_addr } => write!(
                 f,
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
                 bad_addr
             ),
-            Self::NoPipe { bad_quagga } => write!(
+            IoError { io_error, path } => {
+                write!(f, "I/O error at `{}`: {}", path.display(), io_error)
+            }
+            Reqwest { url, reqwest_error } => {
+                write!(f, "Failed request for {}. {}", url, reqwest_error)
+            }
+            MissingPathAttribute { missing_attribute } => {
+                write!(f, "Invalid mrt entry. Missing {}.", missing_attribute)
+            }
+            UnknownAsValue { unknown_as_value } => write!(
                 f,
-                "Invalid quagga data line: {}. Missing `|`, expected format `IP/mask|<asn list>`",
-                bad_quagga
+                "Did not recognize as path value `{}`, expected AS_SET (1) or AS_SEQUENCE (2).",
+                unknown_as_value
             ),
-            Self::IoError { io_error } => write!(f, "I/O error: {}", io_error),
+            UnexpectedEndOfBuffer => write!(f, "Expected another byte but buffer is exhausted."),
+            NoAsPathInAttributePath => {
+                write!(f, "Expected an AS_PATH attribute in BGP Attribute Path.")
+            }
+            MultipleAsPaths => write!(
+                f,
+                "Expected one AS_PATH attribute in BGP Attribute Path, found multiple."
+            ),
         }
     }
 }

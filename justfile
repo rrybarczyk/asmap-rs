@@ -1,26 +1,38 @@
-test: 
-    cargo watch --clear --exec test
+alias b := build
+alias br := build-release
+alias c := check
+alias t := test
+alias tc := test-crate
+alias rc := run-cmd
 
-check: 
-    cargo watch --clear --exec check
+build:
+	cargo watch --clear --exec run
 
-test-print:
-    cargo test -- --nocapture
-
-build: 
+build-release: 
 	cargo build --release
 
-run:
-    cargo watch --clear --exec run
+check: 
+	cargo watch --clear --exec check
+
+test: 
+	cargo watch --clear --ignore dump --shell "cargo test -- --nocapture"
+
+test-crate CRATE:
+	RUST_LOG=debug cargo watch --clear --shell "cargo test {{CRATE}} -- --nocapture"
+
+run-cmd CMD:
+	cargo watch --clear --ignore dump --ignore data --shell "cargo run {{CMD}}"
+
+run-cmd-r CMD:
+	cargo watch --clear --ignore dump --ignore data --shell "cargo run --release {{CMD}}"
 
 # clean up feature branch BRANCH
 done BRANCH:
-    git checkout master
-    git diff --no-ext-diff --quiet --exit-code
-    git pull --rebase origin master
-    git diff --no-ext-diff --quiet --exit-code {{BRANCH}}
-    git branch -D {{BRANCH}}
-
+	git checkout master
+	git diff --no-ext-diff --quiet --exit-code
+	git pull --rebase origin master
+	git diff --no-ext-diff --quiet --exit-code {{BRANCH}}
+	git branch -D {{BRANCH}}
 
 publish:
 	cargo build
