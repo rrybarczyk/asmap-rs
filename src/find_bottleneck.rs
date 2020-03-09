@@ -21,7 +21,7 @@ impl FindBottleneck {
                     path: "path".into(),
                 })?;
                 let path = entry.path();
-                println!("Reading in `{:?}`", &path);
+                println!("Reading in and parsing `{}`", &path.display());
                 let buffer =
                     BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
                         io_error,
@@ -58,7 +58,7 @@ impl FindBottleneck {
         for (addr, mut as_path) in prefix_to_common_suffix {
             let asn = match as_path.pop() {
                 Some(a) => a,
-                None => panic!("ahhh! no asn :( TODO: handle this error"),
+                None => panic!("ERROR: No ASN"), // TODO: Handle error
             };
             self.prefix_asn.insert(addr, asn);
         }
@@ -87,7 +87,7 @@ impl FindBottleneck {
 
                 // Every IP should always belong to only one AS
                 if rev_common_suffix.first() != rev_as_path.first() {
-                    println!(
+                    warn!(
                             "Every IP should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
                             &prefix, &as_paths
                         );
@@ -194,7 +194,7 @@ impl FindBottleneck {
                         .or_insert_with(HashSet::new)
                         .insert(as_path);
                 }
-                Err(e) => error!("ERROR: {:?}. TODO: handle error.", e),
+                Err(e) => info!("ERROR: {:?}. ", e), // TODO: Handle error
             };
         }
         Ok(())
@@ -224,7 +224,7 @@ impl FindBottleneck {
     fn write_bottleneck(self, out: &mut dyn Write) -> Result<(), Error> {
         for (key, value) in self.prefix_asn {
             let text = format!("{}/{}|{:?}", key.ip, key.mask, value);
-            writeln!(out, "{:?}", &text).unwrap();
+            writeln!(out, "{}", &text).unwrap();
         }
 
         Ok(())

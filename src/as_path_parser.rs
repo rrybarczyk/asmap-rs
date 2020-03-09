@@ -11,7 +11,7 @@ impl<'buffer> AsPathParser<'buffer> {
     /// attributes.
     pub(crate) fn parse(buffer: &'buffer [u8]) -> Result<Vec<u32>> {
         if buffer.is_empty() {
-            error!("Error::MissingPathAttribute, buffer: {:?}", buffer);
+            info!("Error::MissingPathAttribute, buffer: {:?}", buffer);
             return Err(Error::MissingPathAttribute {
                 missing_attribute: "all attributes".to_string(),
             });
@@ -27,7 +27,7 @@ impl<'buffer> AsPathParser<'buffer> {
     /// Advances forward one in the buffer and returns that byte. Error if `buffer` is already exhausted.
     fn advance(&mut self) -> Result<u8> {
         if self.done() {
-            error!("Error::UnexpectedEndOfBuffer {:?}", &self.buffer);
+            info!("Error::UnexpectedEndOfBuffer {:?}", &self.buffer);
             Err(Error::UnexpectedEndOfBuffer)
         } else {
             let byte = self.buffer[self.next];
@@ -57,7 +57,7 @@ impl<'buffer> AsPathParser<'buffer> {
             if let Some(path) = self.parse_attribute()? {
                 // if there are no asn's in the as path
                 if path.is_empty() {
-                    error!("Error::NoAsPathInAttributePath {:?}", &self.buffer);
+                    info!("Error::NoAsPathInAttributePath {:?}", &self.buffer);
                     return Err(Error::NoAsPathInAttributePath);
                 }
                 paths.push(path);
@@ -66,12 +66,12 @@ impl<'buffer> AsPathParser<'buffer> {
 
         if paths.len() > 1 {
             // Too many asn paths in path attributes
-            error!("Error::MultipleAsPaths {:?}", &self.buffer);
+            info!("Error::MultipleAsPaths {:?}", &self.buffer);
             Err(Error::MultipleAsPaths)
         } else if let Some(path) = paths.pop() {
             Ok(path)
         } else {
-            error!("Error::NoAsPathInAttributePath{:?}", &self.buffer);
+            info!("Error::NoAsPathInAttributePath{:?}", &self.buffer);
             Err(Error::NoAsPathInAttributePath)
         }
     }
@@ -116,6 +116,7 @@ impl<'buffer> AsPathParser<'buffer> {
         // Only add asn's to as_path vector if they are listed in an ordered AS_SEQUENCE
         match as_set_indicator {
             1 => {
+                println!("AS_SET's are not factored into the bottleneck calculation.");
                 let num_asn = self.advance()?;
 
                 for _ in 0..num_asn {
