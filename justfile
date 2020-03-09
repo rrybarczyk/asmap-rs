@@ -21,7 +21,10 @@ test-crate CRATE:
 	RUST_LOG=debug cargo watch --clear --shell "cargo test {{CRATE}} -- --nocapture"
 
 run-cmd CMD:
-	cargo watch --clear --ignore dump --ignore data --shell "cargo run -- {{CMD}}"
+	cargo watch --clear --ignore dump --ignore data --shell "cargo run {{CMD}}"
+
+run-cmd-r CMD:
+	cargo watch --clear --ignore dump --ignore data --shell "cargo run --release {{CMD}}"
 
 # clean up feature branch BRANCH
 done BRANCH:
