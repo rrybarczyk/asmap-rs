@@ -85,9 +85,12 @@ impl Subcommand {
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
     fn find_bottleneck(dump: &PathBuf, out: Option<&Path>) -> Result<()> {
-        let bottleneck = FindBottleneck::locate(dump)?;
-        bottleneck.write(out)?;
-
+        // TODO handle errors
+        fs::remove_dir("tmp");
+        fs::create_dir("tmp");
+        FindBottleneck::locate(dump)?;
+        FindBottleneck::write_result(out)?;
+        fs::remove_dir("tmp");
         Ok(())
     }
 }
