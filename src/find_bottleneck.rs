@@ -9,29 +9,24 @@ pub(crate) struct FindBottleneck {
 impl FindBottleneck {
     /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
     pub(crate) fn locate(dir: &PathBuf) -> Result<()> {
-        if !dir.is_dir() {
-            Error::NotDirError{path: dir.to_path_buf()};
-        }
-
         let mut file_decoders = Vec::new();
 
         // Walk the directory and read its contents
         for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
             io_error,
-            path: "path".into(),
+            path: dir.to_path_buf(),
         })? {
             let entry = entry.map_err(|io_error| Error::IoError {
                 io_error,
-                path: "path".into(),
+                path: dir.to_path_buf(),
             })?;
             let path = entry.path();
             println!("Acquiring a reader for file`{}`", &path.display());
-            let buffer =
-                BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
-                    io_error,
-                    path: path.into(),
-                })?);
-            
+            let buffer = BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
+                io_error,
+                path: dir.into(),
+            })?);
+
             let decoder = GzDecoder::new(buffer);
             file_decoders.push(decoder);
         }

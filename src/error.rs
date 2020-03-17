@@ -6,9 +6,6 @@ pub enum Error {
         io_error: std::io::Error,
         path: PathBuf,
     },
-    NotDirError {
-        path: PathBuf,
-    },
     AddrParse {
         addr_parse: std::net::AddrParseError,
         bad_addr: String,
@@ -46,9 +43,6 @@ impl Display for Error {
             ),
             IoError { io_error, path } => {
                 write!(f, "I/O error at `{}`: {}", path.display(), io_error)
-            }
-            NotDirError { path } => {
-                write!(f, "Not a directory specified: {}", path.display())
             }
             Reqwest { url, reqwest_error } => {
                 write!(f, "Failed request for {}. {}", url, reqwest_error)
