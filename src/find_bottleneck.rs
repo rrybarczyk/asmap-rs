@@ -22,14 +22,13 @@ impl FindBottleneck {
                 })?;
                 let path = entry.path();
                 println!("Reading in and parsing `{}`", &path.display());
-                let buffer =
+                let mut buffer =
                     BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
                         io_error,
                         path: path.into(),
                     })?);
 
-                let mut decoder = GzDecoder::new(buffer);
-                Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
+                Self::parse_mrt(&mut buffer, &mut mrt_hm)?;
             }
         }
 
