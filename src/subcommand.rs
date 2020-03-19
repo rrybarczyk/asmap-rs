@@ -23,7 +23,7 @@ pub(crate) enum Subcommand {
         #[structopt(name = "DIRECTORY", long = "dir", short = "d")]
         dir: PathBuf,
 
-        /// Directory to write result [default: print to stdout]
+        /// Directory to write result [default: print to the timestamped file in current location]
         #[structopt(name = "OUT", long = "out", short = "o")]
         out: Option<PathBuf>,
     },
@@ -85,8 +85,19 @@ impl Subcommand {
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
     fn find_bottleneck(dump: &PathBuf, out: Option<&Path>) -> Result<()> {
-        let bottleneck = FindBottleneck::locate(dump)?;
-        bottleneck.write(out)?;
+        // Until the work is done, store results in this file so that
+        // a disrupted process doesn't look finalized.
+        let temp_result_file = tempfile();
+        let mut temp_result_file = match temp_result_file {
+            Ok(temp_result_file) => temp_result_file,
+            Err(error) => panic!("ERROR while creating temp file: {:?}", error),
+        };
+
+        FindBottleneck::locate(dump, &mut temp_result_file)?;
+
+        // Once the work is done, move result to the non-temporary file.
+        temp_result_file.seek(SeekFrom::Start(0)).unwrap();
+        FindBottleneck::write(&temp_result_file, out)?;
 
         Ok(())
     }

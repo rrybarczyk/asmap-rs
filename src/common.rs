@@ -2,7 +2,7 @@ pub(crate) use std::{
     collections::{HashMap, HashSet},
     fmt::{self, Display, Formatter},
     fs::{self, File},
-    io::{self, prelude::*, BufReader, BufWriter},
+    io::{self, prelude::*, BufReader, BufWriter, SeekFrom},
     net::IpAddr,
     path::{Path, PathBuf},
     str::FromStr,
@@ -14,6 +14,7 @@ pub(crate) use log::*;
 pub(crate) use mrt_rs::{tabledump::TABLE_DUMP_V2, Reader, Record};
 pub(crate) use pretty_env_logger;
 pub(crate) use structopt::StructOpt;
+pub(crate) use tempfile::tempfile;
 
 pub(crate) use crate::{
     address::Address, as_path_parser::AsPathParser, error::Error, find_bottleneck::FindBottleneck,

@@ -71,11 +71,11 @@ FLAGS:
 
 OPTIONS:
     -d, --dir <DIRECTORY>    Directory path of the MRT formatted gz files to find bottleneck of
-    -o, --out <OUT>          Directory to write result [default: print to stdout]
+    -o, --out <OUT>          Directory to write result [default: print to the current location]
 ```
 
 ### Find Bottleneck ASN Example
-Finds bottleneck from the data located in the `dump` and prints bottleneck results to stdout.
+Finds bottleneck from the data located in the `dump` and prints bottleneck results to`bottleneck.<epoch>.txt`.
 ```
 $ cargo run --release find-bottleneck -d dump
 ```

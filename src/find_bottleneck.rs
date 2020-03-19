@@ -8,37 +8,58 @@ pub(crate) struct FindBottleneck {
 
 impl FindBottleneck {
     /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
-    pub(crate) fn locate(dir: &PathBuf) -> Result<Self> {
-        let mut mrt_hm = HashMap::new();
-        // Walk the directory and read its contents
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
-                io_error,
-                path: "path".into(),
-            })? {
-                let entry = entry.map_err(|io_error| Error::IoError {
-                    io_error,
-                    path: "path".into(),
-                })?;
-                let path = entry.path();
-                println!("Reading in and parsing `{}`", &path.display());
-                let buffer =
-                    BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
-                        io_error,
-                        path: path.into(),
-                    })?);
+    pub(crate) fn locate(dir: &PathBuf, out: &mut dyn Write) -> Result<()> {
+        let mut file_decoders = Vec::new();
 
-                let mut decoder = GzDecoder::new(buffer);
-                Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
-            }
+        // Walk the directory and read its contents
+        for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
+            io_error,
+            path: dir.to_path_buf(),
+        })? {
+            let entry = entry.map_err(|io_error| Error::IoError {
+                io_error,
+                path: dir.to_path_buf(),
+            })?;
+            let path = entry.path();
+            println!("Acquiring a reader for file `{}`", &path.display());
+            let buffer = BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
+                io_error,
+                path: path.into(),
+            })?);
+
+            let decoder = GzDecoder::new(buffer);
+            file_decoders.push(decoder);
         }
 
-        let mut bottleneck = FindBottleneck {
-            prefix_asn: HashMap::new(),
-        };
-        bottleneck.find_as_bottleneck(&mut mrt_hm)?;
+        let step: u8 = 1 << 4; // should be a power of 2
+        for current_start_high_octet in (0..u8::max_value()).step_by(step as usize) {
+            // Assuming the files are sorted by the high octet of the prefix.
+            // "Even though the MRT format specification does not seem to require so,
+            // current implementations to produce the RIB dump file (such as Quagga)
+            // typically store prefixes sorted in the output."
+            // Source: https://labs.ripe.net/Members/yasuhiro_ohara/bgpdump2
 
-        Ok(bottleneck)
+            let current_end_high_octet: u8 = current_start_high_octet.saturating_add(step);
+
+            let mut mrt_hm = HashMap::new();
+
+            for i in 0..file_decoders.len() {
+                println!(
+                    "Processing chunk up to {}.255.255.255 (both ipv4 and ipv6) in file {}/{}",
+                    current_end_high_octet,
+                    i,
+                    file_decoders.len()
+                );
+                Self::parse_mrt(&mut file_decoders[i], &mut mrt_hm, current_end_high_octet)?;
+            }
+
+            let mut bottleneck = FindBottleneck {
+                prefix_asn: HashMap::new(),
+            };
+            bottleneck.find_as_bottleneck(&mut mrt_hm)?;
+            bottleneck.write_bottleneck(out)?;
+        }
+        Ok(())
     }
 
     /// Creates a mapping between a prefix and all of its asn paths, gets the common asns from
@@ -116,6 +137,7 @@ impl FindBottleneck {
     fn parse_mrt(
         reader: &mut dyn Read,
         mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+        current_end_high_octet: u8,
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
 
@@ -126,11 +148,21 @@ impl FindBottleneck {
                         Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                             TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
                                 let ip = Self::format_ip(&entry.prefix, true)?;
+                                if let IpAddr::V4(ipv4) = ip {
+                                    if ipv4.octets()[0] > current_end_high_octet {
+                                        break;
+                                    }
+                                }
                                 let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
                             TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
                                 let ip = Self::format_ip(&entry.prefix, false)?;
+                                if let IpAddr::V6(ipv6) = ip {
+                                    if ipv6.octets()[0] > current_end_high_octet {
+                                        break;
+                                    }
+                                }
                                 let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
@@ -199,23 +231,31 @@ impl FindBottleneck {
         }
         Ok(())
     }
-    /// Writes the asn bottleneck result to a stdout or a time stamped file
-    pub(crate) fn write(self, out: Option<&Path>) -> Result<()> {
-        if let Some(path) = out {
-            let epoch = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-            let now = epoch.as_secs();
-            let dst = path.join(format!("bottleneck.{}.txt", now));
-            let mut file = File::create(&dst).map_err(|io_error| Error::IoError {
-                io_error,
-                path: dst.to_path_buf(),
-            })?;
 
-            self.write_bottleneck(&mut file)?;
+    /// Writes the asn bottleneck result to a time stamped file in a specified or default location
+    pub(crate) fn write(temp_result_file: &File, out: Option<&Path>) -> Result<()> {
+        let epoch = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        let file_name = format!("bottleneck.{}.txt", epoch.as_secs());
+        let dst;
+        if let Some(path) = out {
+            dst = path.join(file_name);
         } else {
-            self.write_bottleneck(&mut io::stdout())?;
+            dst = PathBuf::from(file_name);
         };
+        let file = File::create(&dst).map_err(|io_error| Error::IoError {
+            io_error,
+            path: dst.to_path_buf(),
+        })?;
+
+        let mut buf_reader = BufReader::new(temp_result_file);
+        let mut buf_writer = BufWriter::new(file);
+
+        io::copy(&mut buf_reader, &mut buf_writer).map_err(|io_error| Error::IoError {
+            io_error,
+            path: dst.to_path_buf(),
+        })?;
 
         Ok(())
     }
