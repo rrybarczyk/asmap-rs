@@ -8,6 +8,7 @@ mod subcommand;
 
 use crate::common::*;
 fn main() -> Result<()> {
+    let mut cause_a_warning = 1;
     pretty_env_logger::init();
     Opt::from_args().run()
 }
