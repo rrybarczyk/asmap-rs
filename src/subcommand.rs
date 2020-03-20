@@ -63,10 +63,12 @@ impl Subcommand {
 
     fn download_file(out: &Path, number: u32) -> Result<()> {
         let url = format!("http://data.ris.ripe.net/rrc{:02}/latest-bview.gz", number);
-        let mut res = reqwest::blocking::get(&url).map_err(|reqwest_error| Error::Reqwest {
+        let res = reqwest::blocking::get(&url).map_err(|reqwest_error| Error::Reqwest {
             url: url.to_string(),
             reqwest_error,
         })?;
+
+        let mut decoder = GzDecoder::new(res);
 
         let dst = out.join(format!("rrc{:02}-latest-bview.gz", number));
         let file = File::create(&dst).map_err(|io_error| Error::IoError {
@@ -75,10 +77,16 @@ impl Subcommand {
         })?;
 
         let mut buf_write = BufWriter::new(file);
-        io::copy(&mut res, &mut buf_write).map_err(|io_error| Error::IoError {
-            io_error,
-            path: out.to_path_buf(),
-        })?;
+        match io::copy(&mut decoder, &mut buf_write) {
+            Ok(_) => (),
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::InvalidInput => println!("Invalid gzip header. Skipping file."),
+                other_error => println!(
+                    "Problem with gzip mrt file. `{:?}`. Skipping file.",
+                    other_error
+                ),
+            },
+        };
 
         Ok(())
     }
