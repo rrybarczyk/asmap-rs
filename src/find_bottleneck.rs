@@ -7,11 +7,9 @@ pub(crate) struct FindBottleneck {
 }
 
 impl FindBottleneck {
-    /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
-    pub(crate) fn locate(dir: &PathBuf, out: &mut dyn Write) -> Result<()> {
-        let mut file_decoders = Vec::new();
 
-        // Walk the directory and read its contents
+    fn open_files(dir: &PathBuf) -> Result<Vec<GzDecoder<BufReader<File>>>> {
+        let mut file_decoders = Vec::new();
         for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
             io_error,
             path: dir.to_path_buf(),
@@ -30,27 +28,70 @@ impl FindBottleneck {
             let decoder = GzDecoder::new(buffer);
             file_decoders.push(decoder);
         }
+        return Ok(file_decoders);
+    }
 
+    /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
+    pub(crate) fn locate(dir_sorted: &PathBuf, dir_unsorted: &PathBuf, out: &mut dyn Write) -> Result<()> {
+        // This function uses an optimization to not download everything in RAM.
+        // Instead, it would read file contents in batches, where every batch corresponds
+        // to a prefix range. For example, it will first process all prefixes from
+        // 0.0.0.0 to 15.255.255.255.255.
+        
+        // This assumes that inputs are sorted by prefix,
+        // which is *almost* correct for all RIPE files, and anything produced by Quagga.
+        // "Even though the MRT format specification does not seem to require so,
+        // current implementations to produce the RIB dump file (such as Quagga)
+        // typically store prefixes sorted in the output."
+        // Source: https://labs.ripe.net/Members/yasuhiro_ohara/bgpdump2
+
+        // All unsorted files should be stored and processed separately. Since there's a minority
+        // of them, we'll first load all them in memory, and then, when processing sorted files,
+        // cherry-pick the records from unsorted (those relevant for a given batch).
+
+        let mut file_decoders_sorted = Self::open_files(dir_sorted)?;
+        let mut file_decoders_unsorted = Self::open_files(dir_unsorted)?;
+
+        // First collect all the files which does not preserve order of records by prefix.
+        // Use them every time we are processing batch.
+        let mut mrt_hm_unsorted = HashMap::new();
+        for i in 0..file_decoders_unsorted.len() {
+            // Load all data at once without batching.
+            Self::parse_mrt(&mut file_decoders_unsorted[i], &mut mrt_hm_unsorted, u8::max_value(), &mut HashMap::new())?;
+        }
+
+        // Used to keep track of the last element of the batch.
+        // Since a prefix may have multiple records in a file,
+        // without this workaround it may be either not written at all or written twice.
+        let mut next_mrt_hm = HashMap::new();
         let step: u8 = 1 << 4; // should be a power of 2
         for current_start_high_octet in (0..u8::max_value()).step_by(step as usize) {
-            // Assuming the files are sorted by the high octet of the prefix.
-            // "Even though the MRT format specification does not seem to require so,
-            // current implementations to produce the RIB dump file (such as Quagga)
-            // typically store prefixes sorted in the output."
-            // Source: https://labs.ripe.net/Members/yasuhiro_ohara/bgpdump2
-
             let current_end_high_octet: u8 = current_start_high_octet.saturating_add(step);
 
-            let mut mrt_hm = HashMap::new();
+            let mut mrt_hm = next_mrt_hm.clone();
+            next_mrt_hm.clear();
 
-            for i in 0..file_decoders.len() {
+            for i in 0..file_decoders_sorted.len() {
                 println!(
-                    "Processing chunk up to {}.255.255.255 (both ipv4 and ipv6) in file {}/{}",
+                    "Processing chunk up to {}.255.255.255 plus one (both ipv4 and ipv6) in file {}/{}",
                     current_end_high_octet,
                     i,
-                    file_decoders.len()
+                    file_decoders_sorted.len()
                 );
-                Self::parse_mrt(&mut file_decoders[i], &mut mrt_hm, current_end_high_octet)?;
+                Self::parse_mrt(&mut file_decoders_sorted[i], &mut mrt_hm, current_end_high_octet, &mut next_mrt_hm)?;
+            }
+
+            // Move the relevant data from unsorted files to current batch records.
+            for (prefix, paths_from_sorted) in &mut mrt_hm {
+                match mrt_hm_unsorted.get(prefix) {
+                    Some(paths_from_unsorted) => {
+                        for path in paths_from_unsorted {
+                            paths_from_sorted.insert(path.to_vec());
+                        }
+                        mrt_hm_unsorted.remove(&prefix);
+                    }
+                    None => continue
+                }           
             }
 
             let mut bottleneck = FindBottleneck {
@@ -59,6 +100,14 @@ impl FindBottleneck {
             bottleneck.find_as_bottleneck(&mut mrt_hm)?;
             bottleneck.write_bottleneck(out)?;
         }
+
+        // Write the remaining values from unsorted files.
+        let mut bottleneck = FindBottleneck {
+            prefix_asn: HashMap::new(),
+        };
+        bottleneck.find_as_bottleneck(&mut mrt_hm_unsorted)?;
+        bottleneck.write_bottleneck(out)?;
+
         Ok(())
     }
 
@@ -138,9 +187,9 @@ impl FindBottleneck {
         reader: &mut dyn Read,
         mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
         current_end_high_octet: u8,
+        next_mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
-
         loop {
             match reader.read() {
                 Ok(header_record) => match header_record {
@@ -148,22 +197,24 @@ impl FindBottleneck {
                         Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
                             TABLE_DUMP_V2::RIB_IPV4_UNICAST(entry) => {
                                 let ip = Self::format_ip(&entry.prefix, true)?;
+                                let mask = entry.prefix_length;
                                 if let IpAddr::V4(ipv4) = ip {
                                     if ipv4.octets()[0] > current_end_high_octet {
+                                        Self::match_rib_entry(entry.entries, ip, mask, next_mrt_hm)?;
                                         break;
                                     }
                                 }
-                                let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
                             TABLE_DUMP_V2::RIB_IPV6_UNICAST(entry) => {
                                 let ip = Self::format_ip(&entry.prefix, false)?;
+                                let mask = entry.prefix_length;
                                 if let IpAddr::V6(ipv6) = ip {
                                     if ipv6.octets()[0] > current_end_high_octet {
+                                        Self::match_rib_entry(entry.entries, ip, mask, next_mrt_hm)?;
                                         break;
                                     }
                                 }
-                                let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
                             _ => continue,

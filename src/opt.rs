@@ -16,23 +16,23 @@ impl Opt {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn cli_download_basic() -> Result<(), structopt::clap::Error> {
-        let have =
-            Opt::from_iter_safe(vec!["asmap", "download", "--ripe_collector_number", "1,2"])?;
+//     #[test]
+//     fn cli_download_basic() -> Result<(), structopt::clap::Error> {
+//         let have =
+//             Opt::from_iter_safe(vec!["asmap", "download", "--ripe_collector_number", "1,2"])?;
 
-        let want = Opt {
-            cmd: Subcommand::Download {
-                out: "dump".into(),
-                ripe_collector_number: vec![1, 2],
-            },
-        };
+//         let want = Opt {
+//             cmd: Subcommand::Download {
+//                 out: "dump".into(),
+//                 ripe_collector_number: vec![1, 2],
+//             },
+//         };
 
-        assert_eq!(have, want);
-        Ok(())
-    }
-}
+//         assert_eq!(have, want);
+//         Ok(())
+//     }
+// }

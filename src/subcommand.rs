@@ -4,7 +4,7 @@ use crate::common::*;
 pub(crate) enum Subcommand {
     /// Downloads and saves the MRT formatted gz files
     Download {
-        /// Range of specific RIS files to download [default: [00, 24]]
+        /// Range of specific RIS files to download [default: [00, 24], excluding 02]
         #[structopt(
             name = "RIPE_COLLECTOR_NUMBER",
             long = "ripe_collector_number",
@@ -19,9 +19,13 @@ pub(crate) enum Subcommand {
     },
     /// Reads and decompresses the MRT gz files, parses the AS Paths, determines the AS bottleneck, saves result
     FindBottleneck {
-        /// Directory path of the MRT formatted gz files to find bottleneck of
-        #[structopt(name = "DIRECTORY", long = "dir", short = "d")]
-        dir: PathBuf,
+        /// Directory path of the *sorted by prefix* MRT formatted gz files to find bottleneck of
+        #[structopt(name = "DIRECTORY SORTED", long = "dir_sor", short = "ds")]
+        dir_sor: PathBuf,
+
+        /// Directory path of the *not sorted by prefix (rest)* MRT formatted gz files to find bottleneck of
+        #[structopt(name = "DIRECTORY UNSORTED", long = "dir_unsor", short = "du")]
+        dir_unsor: PathBuf,
 
         /// Directory to write result [default: print to the timestamped file in current location]
         #[structopt(name = "OUT", long = "out", short = "o")]
@@ -36,7 +40,7 @@ impl Subcommand {
                 out,
                 ripe_collector_number,
             } => Self::download(&out, &ripe_collector_number),
-            Self::FindBottleneck { dir, out } => Self::find_bottleneck(&dir, out.as_deref()),
+            Self::FindBottleneck { dir_sor, dir_unsor, out } => Self::find_bottleneck(&dir_sor, &dir_unsor, out.as_deref()),
         }
     }
 
@@ -50,6 +54,9 @@ impl Subcommand {
 
         if ripe_collector_number.is_empty() {
             for i in 0..=24 {
+                if i == 2 {
+                    continue
+                }
                 Self::download_file(out, i)?;
             }
         } else {
@@ -84,7 +91,7 @@ impl Subcommand {
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
-    fn find_bottleneck(dump: &PathBuf, out: Option<&Path>) -> Result<()> {
+    fn find_bottleneck(dump_sorted: &PathBuf, dump_unsorted: &PathBuf, out: Option<&Path>) -> Result<()> {
         // Until the work is done, store results in this file so that
         // a disrupted process doesn't look finalized.
         let temp_result_file = tempfile();
@@ -93,7 +100,7 @@ impl Subcommand {
             Err(error) => panic!("ERROR while creating temp file: {:?}", error),
         };
 
-        FindBottleneck::locate(dump, &mut temp_result_file)?;
+        FindBottleneck::locate(dump_sorted, dump_unsorted, &mut temp_result_file)?;
 
         // Once the work is done, move result to the non-temporary file.
         temp_result_file.seek(SeekFrom::Start(0)).unwrap();
