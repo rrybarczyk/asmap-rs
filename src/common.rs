@@ -1,5 +1,5 @@
 pub(crate) use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     fs::{self, File},
     io::{self, prelude::*, BufReader, BufWriter},
