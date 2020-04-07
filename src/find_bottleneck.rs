@@ -136,9 +136,9 @@ impl FindBottleneck {
                                 let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
-                            _ => continue,
+                            _ => println!("Skipping unsupported MRT record from TABLE_DUMP_V2."),
                         },
-                        _ => continue,
+                        _ => println!("Skipping unsupported MRT table type."),
                     },
                     None => break,
                 },
