@@ -225,7 +225,7 @@ impl FindBottleneck {
     /// Helper write function
     fn write_bottleneck(self, out: &mut dyn Write) -> Result<(), Error> {
         for (key, value) in self.prefix_asn {
-            let text = format!("{}/{}|{:?}", key.ip, key.mask, value);
+            let text = format!("{}/{} AS{:?}", key.ip, key.mask, value);
             writeln!(out, "{}", &text).unwrap();
         }
 
