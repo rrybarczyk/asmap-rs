@@ -30,6 +30,15 @@ impl FindBottleneck {
 
                 let mut decoder = GzDecoder::new(buffer);
                 Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
+
+                // Since the algorithm is sequential anyway, it won't hurt replacing current
+                // data with an intermediate "shrunk" version of it.
+                let mut prefix_to_common_suffix: HashMap<Address, Vec<u32>> = HashMap::new();
+                Self::find_common_suffix(&mut mrt_hm, &mut prefix_to_common_suffix)?;
+                for (routing_prefix, path_suffix) in prefix_to_common_suffix {
+                    let replacement_vec = vec![path_suffix];
+                    mrt_hm.insert(routing_prefix, replacement_vec);
+                }
             }
         }
 
@@ -46,21 +55,14 @@ impl FindBottleneck {
     /// the common asns to be the bottleneck.
     fn find_as_bottleneck(
         &mut self,
-        mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
     ) -> Result<(), Error> {
-        // In the vector value, the first element is the final AS (so the actual AS of the IP,
-        // not some AS on the path). The last element is the critical AS on the path that
-        // determines the bottleneck.
         let mut prefix_to_common_suffix: HashMap<Address, Vec<u32>> = HashMap::new();
 
         Self::find_common_suffix(mrt_hm, &mut prefix_to_common_suffix)?;
 
-        for (addr, mut as_path) in prefix_to_common_suffix {
-            let asn = match as_path.pop() {
-                Some(a) => a,
-                None => panic!("ERROR: No ASN"), // TODO: Handle error
-            };
-            self.prefix_asn.insert(addr, asn);
+        for (addr, as_path) in prefix_to_common_suffix {
+            self.prefix_asn.insert(addr, as_path[0]);
         }
 
         Ok(())
@@ -69,7 +71,7 @@ impl FindBottleneck {
     /// Logic that finds the mapping of each prefix and the asns common to all of the prefix's asn
     /// paths.
     fn find_common_suffix(
-        mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
         prefix_to_common_suffix: &mut HashMap<Address, Vec<u32>>,
     ) -> Result<(), Error> {
         'outer: for (prefix, as_paths) in mrt_hm.iter() {
@@ -102,7 +104,7 @@ impl FindBottleneck {
                     }
                 }
             }
-            // rev_common_suffix.reverse();
+            rev_common_suffix.reverse();
             prefix_to_common_suffix
                 .entry(*prefix)
                 .or_insert(rev_common_suffix);
@@ -115,7 +117,7 @@ impl FindBottleneck {
     /// containing the prefix and associated as paths.
     fn parse_mrt(
         reader: &mut dyn Read,
-        mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
 
@@ -181,7 +183,7 @@ impl FindBottleneck {
         entries: Vec<mrt_rs::records::tabledump::RIBEntry>,
         ip: IpAddr,
         mask: u8,
-        mrt_hm: &mut HashMap<Address, HashSet<Vec<u32>>>,
+        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
     ) -> Result<()> {
         let addr = Address { ip, mask };
 
@@ -189,10 +191,7 @@ impl FindBottleneck {
             match AsPathParser::parse(&rib_entry.attributes) {
                 Ok(mut as_path) => {
                     as_path.dedup();
-                    mrt_hm
-                        .entry(addr)
-                        .or_insert_with(HashSet::new)
-                        .insert(as_path);
+                    mrt_hm.entry(addr).or_insert_with(Vec::new).push(as_path);
                 }
                 Err(e) => info!("ERROR: {:?}. ", e), // TODO: Handle error
             };
@@ -235,8 +234,8 @@ impl FindBottleneck {
 mod tests {
     use super::*;
 
-    fn setup_mrt_hm() -> Result<HashMap<Address, HashSet<Vec<u32>>>, Error> {
-        let mut mrt_hm: HashMap<Address, HashSet<Vec<u32>>> = HashMap::new();
+    fn setup_mrt_hm() -> Result<HashMap<Address, Vec<Vec<u32>>>, Error> {
+        let mut mrt_hm: HashMap<Address, Vec<Vec<u32>>> = HashMap::new();
         let ip_str = "1.0.139.0";
         let addr = Address {
             ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
@@ -246,10 +245,10 @@ mod tests {
             mask: 24,
         };
 
-        let mut asn_paths = HashSet::new();
-        asn_paths.insert(vec![2497, 38040, 23969]);
-        asn_paths.insert(vec![25152, 6939, 4766, 38040, 23969]);
-        asn_paths.insert(vec![4777, 6939, 4766, 38040, 23969]);
+        let mut asn_paths = Vec::new();
+        asn_paths.push(vec![2497, 38040, 23969]);
+        asn_paths.push(vec![25152, 6939, 4766, 38040, 23969]);
+        asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
         mrt_hm.insert(addr, asn_paths);
 
         let ip_str = "1.0.204.0";
@@ -260,10 +259,10 @@ mod tests {
             })?,
             mask: 22,
         };
-        let mut asn_paths = HashSet::new();
-        asn_paths.insert(vec![2497, 38040, 23969]);
-        asn_paths.insert(vec![4777, 6939, 4766, 38040, 23969]);
-        asn_paths.insert(vec![25152, 2914, 38040, 23969]);
+        let mut asn_paths = Vec::new();
+        asn_paths.push(vec![2497, 38040, 23969]);
+        asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
+        asn_paths.push(vec![25152, 2914, 38040, 23969]);
         mrt_hm.insert(addr, asn_paths);
 
         let ip_str = "1.0.6.0";
@@ -274,10 +273,10 @@ mod tests {
             })?,
             mask: 24,
         };
-        let mut asn_paths = HashSet::new();
-        asn_paths.insert(vec![2497, 4826, 38803, 56203]);
-        asn_paths.insert(vec![25152, 6939, 4826, 38803, 56203]);
-        asn_paths.insert(vec![4777, 6939, 4826, 38803, 56203]);
+        let mut asn_paths = Vec::new();
+        asn_paths.push(vec![2497, 4826, 38803, 56203]);
+        asn_paths.push(vec![25152, 6939, 4826, 38803, 56203]);
+        asn_paths.push(vec![4777, 6939, 4826, 38803, 56203]);
         mrt_hm.insert(addr, asn_paths);
 
         Ok(mrt_hm)
@@ -286,9 +285,9 @@ mod tests {
     #[test]
     fn finds_common_suffix_from_mrt_hashmap() -> Result<(), Error> {
         let mut want: HashMap<Address, Vec<u32>> = HashMap::new();
-        want.insert(Address::from_str("1.0.139.0/24")?, vec![23969, 38040]);
-        want.insert(Address::from_str("1.0.204.0/22")?, vec![23969, 38040]);
-        want.insert(Address::from_str("1.0.6.0/24")?, vec![56203, 38803, 4826]);
+        want.insert(Address::from_str("1.0.139.0/24")?, vec![38040, 23969]);
+        want.insert(Address::from_str("1.0.204.0/22")?, vec![38040, 23969]);
+        want.insert(Address::from_str("1.0.6.0/24")?, vec![4826, 38803, 56203]);
 
         let mut mrt_hm = setup_mrt_hm()?;
         let mut have: HashMap<Address, Vec<u32>> = HashMap::new();
