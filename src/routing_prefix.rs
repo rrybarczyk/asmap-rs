@@ -1,12 +1,12 @@
 use crate::common::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub(crate) struct Address {
+pub(crate) struct RoutingPrefix {
     pub(crate) ip: IpAddr,
     pub(crate) mask: u8,
 }
 
-impl FromStr for Address {
+impl FromStr for RoutingPrefix {
     type Err = Error;
 
     fn from_str(text: &str) -> Result<Self, Self::Err> {
@@ -14,7 +14,7 @@ impl FromStr for Address {
             Some(_) => (),
             None => {
                 return Err(Error::NoSlash {
-                    bad_addr: text.to_owned(),
+                    bad_prefix: text.to_owned(),
                 })
             }
         };
@@ -27,7 +27,7 @@ impl FromStr for Address {
             bad_addr: ip_str.to_string(),
         })?;
         let mask = ip_mask_vec[1].parse::<u8>().unwrap();
-        Ok(Address { ip, mask })
+        Ok(RoutingPrefix { ip, mask })
     }
 }
 
@@ -36,16 +36,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn address_from_str_ipv4() -> Result<(), Error> {
+    fn routing_prefix_from_str_ipv4() -> Result<(), Error> {
         let ip = "127.0.0.1";
         let mask = 23;
         let ip_and_mask = format!("{}/{}", ip, mask);
-        let want = Address {
+        let want = RoutingPrefix {
             ip: IpAddr::from_str(ip).unwrap(),
             mask,
         };
 
-        let have = Address::from_str(&ip_and_mask).unwrap();
+        let have = RoutingPrefix::from_str(&ip_and_mask).unwrap();
 
         assert_eq!(have, want);
 
@@ -53,16 +53,16 @@ mod tests {
     }
 
     #[test]
-    fn address_from_str_ipv6() -> Result<(), Error> {
+    fn routing_prefix_from_str_ipv6() -> Result<(), Error> {
         let ip = "2001::";
         let mask = 32;
         let ip_and_mask = format!("{}/{}", ip, mask);
-        let want = Address {
+        let want = RoutingPrefix {
             ip: IpAddr::from_str(ip).unwrap(),
             mask,
         };
 
-        let have = Address::from_str(&ip_and_mask).unwrap();
+        let have = RoutingPrefix::from_str(&ip_and_mask).unwrap();
 
         assert_eq!(have, want);
 

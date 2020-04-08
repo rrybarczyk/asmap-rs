@@ -3,7 +3,7 @@ use crate::common::*;
 /// Contains the mapping of each prefix to its bottleneck asn.
 #[derive(Debug, PartialEq)]
 pub(crate) struct FindBottleneck {
-    prefix_asn: HashMap<Address, u32>,
+    prefix_asn: HashMap<RoutingPrefix, u32>,
 }
 
 impl FindBottleneck {
@@ -33,7 +33,7 @@ impl FindBottleneck {
 
                 // Since the algorithm is sequential anyway, it won't hurt replacing current
                 // data with an intermediate "shrunk" version of it.
-                let mut prefix_to_common_suffix: HashMap<Address, Vec<u32>> = HashMap::new();
+                let mut prefix_to_common_suffix: HashMap<RoutingPrefix, Vec<u32>> = HashMap::new();
                 Self::find_common_suffix(&mut mrt_hm, &mut prefix_to_common_suffix)?;
                 for (routing_prefix, path_suffix) in prefix_to_common_suffix {
                     let replacement_vec = vec![path_suffix];
@@ -55,14 +55,14 @@ impl FindBottleneck {
     /// the common asns to be the bottleneck.
     fn find_as_bottleneck(
         &mut self,
-        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
+        mrt_hm: &mut HashMap<RoutingPrefix, Vec<Vec<u32>>>,
     ) -> Result<(), Error> {
-        let mut prefix_to_common_suffix: HashMap<Address, Vec<u32>> = HashMap::new();
+        let mut prefix_to_common_suffix: HashMap<RoutingPrefix, Vec<u32>> = HashMap::new();
 
         Self::find_common_suffix(mrt_hm, &mut prefix_to_common_suffix)?;
 
-        for (addr, as_path) in prefix_to_common_suffix {
-            self.prefix_asn.insert(addr, as_path[0]);
+        for (prefix, as_path) in prefix_to_common_suffix {
+            self.prefix_asn.insert(prefix, as_path[0]);
         }
 
         Ok(())
@@ -71,8 +71,8 @@ impl FindBottleneck {
     /// Logic that finds the mapping of each prefix and the asns common to all of the prefix's asn
     /// paths.
     fn find_common_suffix(
-        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
-        prefix_to_common_suffix: &mut HashMap<Address, Vec<u32>>,
+        mrt_hm: &mut HashMap<RoutingPrefix, Vec<Vec<u32>>>,
+        prefix_to_common_suffix: &mut HashMap<RoutingPrefix, Vec<u32>>,
     ) -> Result<(), Error> {
         'outer: for (prefix, as_paths) in mrt_hm.iter() {
             let mut as_paths_sorted: Vec<&Vec<u32>> = as_paths.iter().collect();
@@ -90,7 +90,7 @@ impl FindBottleneck {
                 // Every IP should always belong to only one AS
                 if rev_common_suffix.first() != rev_as_path.first() {
                     warn!(
-                            "Every IP should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
+                            "Every prefix should belong to one AS. Prefix: `{:?}` has anomalous AS paths: `{:?}`.",
                             &prefix, &as_paths
                         );
                     continue 'outer;
@@ -117,7 +117,7 @@ impl FindBottleneck {
     /// containing the prefix and associated as paths.
     fn parse_mrt(
         reader: &mut dyn Read,
-        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
+        mrt_hm: &mut HashMap<RoutingPrefix, Vec<Vec<u32>>>,
     ) -> Result<()> {
         let mut reader = Reader { stream: reader };
 
@@ -136,9 +136,9 @@ impl FindBottleneck {
                                 let mask = entry.prefix_length;
                                 Self::match_rib_entry(entry.entries, ip, mask, mrt_hm)?;
                             }
-                            _ => continue,
+                            _ => println!("Skipping unsupported MRT record from TABLE_DUMP_V2."),
                         },
-                        _ => continue,
+                        _ => println!("Skipping unsupported MRT table type."),
                     },
                     None => break,
                 },
@@ -183,15 +183,18 @@ impl FindBottleneck {
         entries: Vec<mrt_rs::records::tabledump::RIBEntry>,
         ip: IpAddr,
         mask: u8,
-        mrt_hm: &mut HashMap<Address, Vec<Vec<u32>>>,
+        mrt_hm: &mut HashMap<RoutingPrefix, Vec<Vec<u32>>>,
     ) -> Result<()> {
-        let addr = Address { ip, mask };
+        let routing_prefix = RoutingPrefix { ip, mask };
 
         for rib_entry in entries {
             match AsPathParser::parse(&rib_entry.attributes) {
                 Ok(mut as_path) => {
                     as_path.dedup();
-                    mrt_hm.entry(addr).or_insert_with(Vec::new).push(as_path);
+                    mrt_hm
+                        .entry(routing_prefix)
+                        .or_insert_with(Vec::new)
+                        .push(as_path);
                 }
                 Err(e) => info!("ERROR: {:?}. ", e), // TODO: Handle error
             };
@@ -222,7 +225,7 @@ impl FindBottleneck {
     /// Helper write function
     fn write_bottleneck(self, out: &mut dyn Write) -> Result<(), Error> {
         for (key, value) in self.prefix_asn {
-            let text = format!("{}/{}|{:?}", key.ip, key.mask, value);
+            let text = format!("{}/{} AS{:?}", key.ip, key.mask, value);
             writeln!(out, "{}", &text).unwrap();
         }
 
@@ -234,10 +237,10 @@ impl FindBottleneck {
 mod tests {
     use super::*;
 
-    fn setup_mrt_hm() -> Result<HashMap<Address, Vec<Vec<u32>>>, Error> {
-        let mut mrt_hm: HashMap<Address, Vec<Vec<u32>>> = HashMap::new();
+    fn setup_mrt_hm() -> Result<HashMap<RoutingPrefix, Vec<Vec<u32>>>, Error> {
+        let mut mrt_hm: HashMap<RoutingPrefix, Vec<Vec<u32>>> = HashMap::new();
         let ip_str = "1.0.139.0";
-        let addr = Address {
+        let routing_prefix = RoutingPrefix {
             ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
                 addr_parse,
                 bad_addr: ip_str.to_string(),
@@ -249,10 +252,10 @@ mod tests {
         asn_paths.push(vec![2497, 38040, 23969]);
         asn_paths.push(vec![25152, 6939, 4766, 38040, 23969]);
         asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
-        mrt_hm.insert(addr, asn_paths);
+        mrt_hm.insert(routing_prefix, asn_paths);
 
         let ip_str = "1.0.204.0";
-        let addr = Address {
+        let routing_prefix = RoutingPrefix {
             ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
                 addr_parse,
                 bad_addr: ip_str.to_string(),
@@ -263,10 +266,10 @@ mod tests {
         asn_paths.push(vec![2497, 38040, 23969]);
         asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
         asn_paths.push(vec![25152, 2914, 38040, 23969]);
-        mrt_hm.insert(addr, asn_paths);
+        mrt_hm.insert(routing_prefix, asn_paths);
 
         let ip_str = "1.0.6.0";
-        let addr = Address {
+        let routing_prefix = RoutingPrefix {
             ip: IpAddr::from_str(ip_str).map_err(|addr_parse| Error::AddrParse {
                 addr_parse,
                 bad_addr: ip_str.to_string(),
@@ -277,20 +280,23 @@ mod tests {
         asn_paths.push(vec![2497, 4826, 38803, 56203]);
         asn_paths.push(vec![25152, 6939, 4826, 38803, 56203]);
         asn_paths.push(vec![4777, 6939, 4826, 38803, 56203]);
-        mrt_hm.insert(addr, asn_paths);
+        mrt_hm.insert(routing_prefix, asn_paths);
 
         Ok(mrt_hm)
     }
 
     #[test]
     fn finds_common_suffix_from_mrt_hashmap() -> Result<(), Error> {
-        let mut want: HashMap<Address, Vec<u32>> = HashMap::new();
-        want.insert(Address::from_str("1.0.139.0/24")?, vec![38040, 23969]);
-        want.insert(Address::from_str("1.0.204.0/22")?, vec![38040, 23969]);
-        want.insert(Address::from_str("1.0.6.0/24")?, vec![4826, 38803, 56203]);
+        let mut want: HashMap<RoutingPrefix, Vec<u32>> = HashMap::new();
+        want.insert(RoutingPrefix::from_str("1.0.139.0/24")?, vec![38040, 23969]);
+        want.insert(RoutingPrefix::from_str("1.0.204.0/22")?, vec![38040, 23969]);
+        want.insert(
+            RoutingPrefix::from_str("1.0.6.0/24")?,
+            vec![4826, 38803, 56203],
+        );
 
         let mut mrt_hm = setup_mrt_hm()?;
-        let mut have: HashMap<Address, Vec<u32>> = HashMap::new();
+        let mut have: HashMap<RoutingPrefix, Vec<u32>> = HashMap::new();
 
         assert_eq!(
             FindBottleneck::find_common_suffix(&mut mrt_hm, &mut have)?,
@@ -307,11 +313,11 @@ mod tests {
             prefix_asn: HashMap::new(),
         };
         want.prefix_asn
-            .insert(Address::from_str("1.0.139.0/24")?, 38040);
+            .insert(RoutingPrefix::from_str("1.0.139.0/24")?, 38040);
         want.prefix_asn
-            .insert(Address::from_str("1.0.204.0/22")?, 38040);
+            .insert(RoutingPrefix::from_str("1.0.204.0/22")?, 38040);
         want.prefix_asn
-            .insert(Address::from_str("1.0.6.0/24")?, 4826);
+            .insert(RoutingPrefix::from_str("1.0.6.0/24")?, 4826);
 
         let mut have = FindBottleneck {
             prefix_asn: HashMap::new(),

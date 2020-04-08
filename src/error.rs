@@ -11,7 +11,7 @@ pub enum Error {
         bad_addr: String,
     },
     NoSlash {
-        bad_addr: String,
+        bad_prefix: String,
     },
     Reqwest {
         url: String,
@@ -36,10 +36,10 @@ impl Display for Error {
                 addr_parse,
                 bad_addr,
             } => write!(f, "Invalid address, {}: {}", addr_parse, bad_addr),
-            NoSlash { bad_addr } => write!(
+            NoSlash { bad_prefix } => write!(
                 f,
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
-                bad_addr
+                bad_prefix
             ),
             IoError { io_error, path } => {
                 write!(f, "I/O error at `{}`: {}", path.display(), io_error)
@@ -72,11 +72,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn addr_parse_display() {
+    fn routing_prefix_parse_display() {
         let ip = "bad_address";
         let mask = 23;
         let text = format!("{}/{}", ip, mask);
-        let err = Address::from_str(&text).unwrap_err();
+        let err = RoutingPrefix::from_str(&text).unwrap_err();
         assert_eq!(
             err.to_string(),
             "Invalid address, invalid IP address syntax: bad_address"
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn no_slash_display() {
         let err = Error::NoSlash {
-            bad_addr: String::from("INVALID_IP_AND_MASK"),
+            bad_prefix: String::from("INVALID_IP_AND_MASK"),
         };
 
         assert_eq!(
