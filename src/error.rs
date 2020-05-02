@@ -26,6 +26,7 @@ pub enum Error {
     UnexpectedEndOfBuffer,
     MultipleAsPaths,
     NoAsPathInAttributePath,
+    AttributeOverflow,
 }
 
 impl Display for Error {
@@ -62,6 +63,10 @@ impl Display for Error {
             MultipleAsPaths => write!(
                 f,
                 "Expected one AS_PATH attribute in BGP Attribute Path, found multiple."
+            ),
+            AttributeOverflow => write!(
+                f,
+                "Overflow encountered during AS parsing. Ignoring invalid attribute."
             ),
         }
     }
