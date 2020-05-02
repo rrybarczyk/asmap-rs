@@ -93,12 +93,16 @@ impl<'buffer> AsPathParser<'buffer> {
             let asn_path = self.parse_as_path();
 
             if asn_attr_position_end != self.next {
-                let leftover_attr_count = asn_attr_position_end - self.next;
-                for _ in 0..leftover_attr_count {
-                    self.advance()?;
+                let leftover_attr_count = asn_attr_position_end.checked_sub(self.next);
+                match leftover_attr_count {
+                    Some(count) => {
+                        for _ in 0..count {
+                            self.advance()?;
+                        }
+                    }
+                    None => println!("{}", Error::AttributeOverflow),
                 }
             }
-
             asn_path
         } else {
             for _ in 0..attribute_length {
