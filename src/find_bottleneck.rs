@@ -8,25 +8,23 @@ pub(crate) struct FindBottleneck {
 
 impl FindBottleneck {
     /// Creates a new `FindBottleneck`, reads and parses mrt files, locates prefix and asn bottleneck
-    pub(crate) fn locate(dir: &PathBuf) -> Result<Self> {
+    pub(crate) fn locate(dir: &Path) -> Result<Self> {
         let mut mrt_hm = HashMap::new();
         // Walk the directory and read its contents
         if dir.is_dir() {
-            for entry in fs::read_dir(dir).map_err(|io_error| Error::IoError {
+            for entry in fs::read_dir(dir).map_err(|io_error| Error::Io {
                 io_error,
                 path: "path".into(),
             })? {
-                let entry = entry.map_err(|io_error| Error::IoError {
+                let entry = entry.map_err(|io_error| Error::Io {
                     io_error,
                     path: "path".into(),
                 })?;
                 let path = entry.path();
                 println!("Reading in and parsing `{}`", &path.display());
-                let buffer =
-                    BufReader::new(File::open(&path).map_err(|io_error| Error::IoError {
-                        io_error,
-                        path: path.into(),
-                    })?);
+                let buffer = BufReader::new(
+                    File::open(&path).map_err(|io_error| Error::Io { io_error, path })?,
+                );
 
                 let mut decoder = GzDecoder::new(buffer);
                 Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
@@ -77,7 +75,7 @@ impl FindBottleneck {
         'outer: for (prefix, as_paths) in mrt_hm.iter() {
             let mut as_paths_sorted: Vec<&Vec<u32>> = as_paths.iter().collect();
 
-            as_paths_sorted.sort_by(|a, b| a.len().cmp(&b.len())); // descending
+            as_paths_sorted.sort_by_key(|a| a.len()); // descending
 
             let mut rev_common_suffix: Vec<u32> = as_paths_sorted[0].to_vec();
             rev_common_suffix.reverse();
@@ -209,7 +207,7 @@ impl FindBottleneck {
                 .unwrap();
             let now = epoch.as_secs();
             let dst = path.join(format!("bottleneck.{}.txt", now));
-            let mut file = File::create(&dst).map_err(|io_error| Error::IoError {
+            let mut file = File::create(&dst).map_err(|io_error| Error::Io {
                 io_error,
                 path: dst.to_path_buf(),
             })?;
@@ -248,10 +246,11 @@ mod tests {
             mask: 24,
         };
 
-        let mut asn_paths = Vec::new();
-        asn_paths.push(vec![2497, 38040, 23969]);
-        asn_paths.push(vec![25152, 6939, 4766, 38040, 23969]);
-        asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
+        let asn_paths = vec![
+            vec![2497, 38040, 23969],
+            vec![25152, 6939, 4766, 38040, 23969],
+            vec![4777, 6939, 4766, 38040, 23969],
+        ];
         mrt_hm.insert(routing_prefix, asn_paths);
 
         let ip_str = "1.0.204.0";
@@ -262,10 +261,12 @@ mod tests {
             })?,
             mask: 22,
         };
-        let mut asn_paths = Vec::new();
-        asn_paths.push(vec![2497, 38040, 23969]);
-        asn_paths.push(vec![4777, 6939, 4766, 38040, 23969]);
-        asn_paths.push(vec![25152, 2914, 38040, 23969]);
+        let asn_paths = vec![
+            vec![2497, 38040, 23969],
+            vec![4777, 6939, 4766, 38040, 23969],
+            vec![25152, 2914, 38040, 23969],
+        ];
+
         mrt_hm.insert(routing_prefix, asn_paths);
 
         let ip_str = "1.0.6.0";
@@ -276,10 +277,11 @@ mod tests {
             })?,
             mask: 24,
         };
-        let mut asn_paths = Vec::new();
-        asn_paths.push(vec![2497, 4826, 38803, 56203]);
-        asn_paths.push(vec![25152, 6939, 4826, 38803, 56203]);
-        asn_paths.push(vec![4777, 6939, 4826, 38803, 56203]);
+        let asn_paths = vec![
+            vec![2497, 4826, 38803, 56203],
+            vec![25152, 6939, 4826, 38803, 56203],
+            vec![4777, 6939, 4826, 38803, 56203],
+        ];
         mrt_hm.insert(routing_prefix, asn_paths);
 
         Ok(mrt_hm)
@@ -298,10 +300,7 @@ mod tests {
         let mut mrt_hm = setup_mrt_hm()?;
         let mut have: HashMap<RoutingPrefix, Vec<u32>> = HashMap::new();
 
-        assert_eq!(
-            FindBottleneck::find_common_suffix(&mut mrt_hm, &mut have)?,
-            ()
-        );
+        assert!(FindBottleneck::find_common_suffix(&mut mrt_hm, &mut have).is_ok());
         assert_eq!(have, want);
 
         Ok(())

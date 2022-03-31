@@ -88,7 +88,7 @@ impl<'buffer> AsPathParser<'buffer> {
         }
 
         if type_code == 2 {
-            let asn_attr_position_end = &self.next + attribute_length as usize;
+            let asn_attr_position_end = self.next + attribute_length as usize;
 
             let asn_path = self.parse_as_path();
 
@@ -155,10 +155,7 @@ mod tests {
     fn creates_new_as_path_parser() -> Result<()> {
         let buffer = &[0, 1, 2, 3, 4];
 
-        let want = AsPathParser {
-            buffer: buffer,
-            next: 0,
-        };
+        let want = AsPathParser { buffer, next: 0 };
 
         let have = AsPathParser::new(buffer);
 

@@ -43,7 +43,7 @@ impl Subcommand {
     /// Downloads the gz file from data.ris.ripe.net and save to the corresponding directory.
     fn download(out: &Path, ripe_collector_number: &[u32]) -> Result<()> {
         // Create target directory
-        fs::create_dir_all(out).map_err(|io_error| Error::IoError {
+        fs::create_dir_all(out).map_err(|io_error| Error::Io {
             io_error,
             path: out.into(),
         })?;
@@ -69,13 +69,13 @@ impl Subcommand {
         })?;
 
         let dst = out.join(format!("rrc{:02}-latest-bview.gz", number));
-        let file = File::create(&dst).map_err(|io_error| Error::IoError {
+        let file = File::create(&dst).map_err(|io_error| Error::Io {
             io_error,
             path: dst.to_path_buf(),
         })?;
 
         let mut buf_write = BufWriter::new(file);
-        io::copy(&mut res, &mut buf_write).map_err(|io_error| Error::IoError {
+        io::copy(&mut res, &mut buf_write).map_err(|io_error| Error::Io {
             io_error,
             path: out.to_path_buf(),
         })?;
@@ -84,7 +84,7 @@ impl Subcommand {
     }
 
     /// Reads gz mrt data from urls defined by range, decompresses them, parses mrt output, finds bottleneck.
-    fn find_bottleneck(dump: &PathBuf, out: Option<&Path>) -> Result<()> {
+    fn find_bottleneck(dump: &Path, out: Option<&Path>) -> Result<()> {
         let bottleneck = FindBottleneck::locate(dump)?;
         bottleneck.write(out)?;
 

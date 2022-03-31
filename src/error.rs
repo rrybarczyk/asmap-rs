@@ -2,7 +2,7 @@ use crate::common::*;
 
 #[derive(Debug)]
 pub enum Error {
-    IoError {
+    Io {
         io_error: std::io::Error,
         path: PathBuf,
     },
@@ -42,7 +42,7 @@ impl Display for Error {
                 "Invalid IP and mask: {}. Missing `/`, expected format `IP/mask`",
                 bad_prefix
             ),
-            IoError { io_error, path } => {
+            Io { io_error, path } => {
                 write!(f, "I/O error at `{}`: {}", path.display(), io_error)
             }
             Reqwest { url, reqwest_error } => {
