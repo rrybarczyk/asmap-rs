@@ -28,8 +28,8 @@ impl FindBottleneck {
                         path: path.into(),
                     })?);
 
-                let mut decoder = GzDecoder::new(buffer);
-                Self::parse_mrt(&mut decoder, &mut mrt_hm)?;
+                let decoder = GzDecoder::new(buffer);
+                Self::parse_mrt(decoder, &mut mrt_hm)?;
 
                 // Since the algorithm is sequential anyway, it won't hurt replacing current
                 // data with an intermediate "shrunk" version of it.
@@ -116,13 +116,11 @@ impl FindBottleneck {
     /// Parses the mrt formatted data, extracting the pertinent `PEER_INDEX_TABLE` values
     /// containing the prefix and associated as paths.
     fn parse_mrt(
-        reader: &mut dyn Read,
+        mut decoder: GzDecoder<BufReader<File>>,
         mrt_hm: &mut HashMap<RoutingPrefix, Vec<Vec<u32>>>,
     ) -> Result<()> {
-        let mut reader = Reader { stream: reader };
-
         loop {
-            match reader.read() {
+            match mrt_rs::read(&mut decoder) {
                 Ok(header_record) => match header_record {
                     Some((_, record)) => match record {
                         Record::TABLE_DUMP_V2(tdv2_entry) => match tdv2_entry {
